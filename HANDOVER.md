@@ -167,9 +167,17 @@ plugin files. The restore script refuses to run while it is up.
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR
       focused and **View → Keyboard Shortcuts ON** (off by default).
-- [ ] **Report upstream to G0JKN:** patches 1–4 and 7 are genuine plugin bugs that
-      affect every user, not local preferences. Patch 7 (TUNE cannot be switched
-      off) is the safety-relevant one — tune keys the transmitter.
+- [x] **Reported upstream to G0JKN** — 2026-09-01, as
+      [nigelfenton/aethersdr-ulanzi-plugin#3](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/issues/3),
+      framed as the "first-light smoke test with D100H" the README lists as an open
+      roadmap item. Five findings: patches 1, 3, 4, 6 and 7 here (TCI port default,
+      inspector settings never persisting, invalid mode tokens, malformed `if:`
+      slice command, TUNE runaway). PR offered.
+      Deliberately excluded: band stacking and the band-default frequencies are
+      local preference, not defects. **The missing `node_modules` is NOT a bug** —
+      upstream's README documents `npm install` as install step 3; it only bit us
+      because the plugin was installed by copying the folder rather than following
+      that step. Watch the issue for a reply.
 - [ ] `vfo_swap` on knob press is guarded — it does nothing unless AetherSDR has
       reported a VFO B for the slice. Silent by design; may look broken.
 
