@@ -11,7 +11,7 @@ script to re-apply them after a plugin update.
 
 ## Why this exists
 
-A plugin update overwrites the plugin directory and wipes `node_modules`. All six
+A plugin update overwrites the plugin directory and wipes `node_modules`. All seven
 patches below revert, and the failure mode is a controller that looks completely
 dead while the Studio profile still looks perfect.
 
@@ -35,8 +35,9 @@ refuses to run while it is up. Restart Studio afterwards.
 | 4 | Valid AetherSDR mode tokens (`usb`/`lsb`/`cwr`/`digu`; `CW`/`AM`/`FM` don't exist) |
 | 5 | Band stacking, and band defaults moved off the band edges |
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
+| 7 | TUNE toggle read its state from the receiver index, so it could start a tune cycle but never stop it |
 
-Patches 1–4 are genuine upstream bugs worth reporting to G0JKN.
+Patches 1–4 and 7 are genuine upstream bugs worth reporting to G0JKN.
 
 ## Layout
 

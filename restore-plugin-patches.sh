@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #   A plugin update from upstream overwrites the plugin directory and wipes
-#   node_modules.  Every one of the six fixes below then reverts, and the
+#   node_modules.  Every one of the seven fixes below then reverts, and the
 #   symptom is a controller that looks completely dead — the profile still
 #   looks correct, the buttons just do nothing.  Run this after any update.
 #
@@ -14,6 +14,8 @@
 #   4. Valid AetherSDR mode tokens (usb/lsb/cwr/digu, lowercase)
 #   5. Band stacking + band defaults off the band edges
 #   6. mute:<rx>,<bool> receiver index; malformed `if:` slice command removed
+#   7. TUNE toggle state read from p[1], not the receiver index — it could
+#      start a tune cycle but never stop one (and tune keys the transmitter)
 #
 # Usage:  ./restore-plugin-patches.sh [--check]
 #         --check  report status only, change nothing

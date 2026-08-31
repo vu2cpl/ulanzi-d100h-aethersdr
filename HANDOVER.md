@@ -60,7 +60,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Six local patches to the plugin. **A plugin update reverts every one of them**,
+Seven local patches to the plugin. **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -96,6 +96,13 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    - `if:<n>;` was never a slice command at all — `if` is TCI's **IF-OFFSET** verb
      (`if:<rx>,<sub_rx>,<hz>`), so every Slice Cycle press fired a malformed IF
      command. Removed.
+
+7. **TUNE could not be switched off.** `tune:` is answered as `tune:<rx>,<bool>`,
+   but the parser read the state from `p[0]` — the *receiver index* — so
+   `radio.tuning` was permanently `false` and `cmdTuneToggle()` only ever sent
+   `tune:0,true`. The button could start a tune cycle but never stop one, and
+   tune keys the transmitter. Parser now reads `p[1]`.
+   (`rit_enable:` and `tune:` command formats were both probed and are correct.)
 
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
 dial dispatch (the encoder handlers were hardcoded and ignored whatever you assigned
@@ -149,14 +156,13 @@ plugin files. The restore script refuses to run while it is up.
 - [ ] `SLICE_COUNT` is hardcoded to **2**. AetherSDR reports `trx_count:1` yet answers
       on receiver index 1 with independent state (3.553 MHz CW), so the real slice
       count can't be inferred from TCI. Set it to match actual operating practice.
-- [ ] **Unverified wire formats:** `rit_enable:` and `tune:`. Inherited from upstream,
-      never probed. Probe them before trusting those two buttons.
 - [ ] **Visible slice switching** is possible via a different route: AetherSDR's
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR
       focused and **View → Keyboard Shortcuts ON** (off by default).
-- [ ] **Report upstream to G0JKN:** patches 1–4 are genuine plugin bugs that affect
-      every user, not local preferences.
+- [ ] **Report upstream to G0JKN:** patches 1–4 and 7 are genuine plugin bugs that
+      affect every user, not local preferences. Patch 7 (TUNE cannot be switched
+      off) is the safety-relevant one — tune keys the transmitter.
 - [ ] `vfo_swap` on knob press is guarded — it does nothing unless AetherSDR has
       reported a VFO B for the slice. Silent by design; may look broken.
 

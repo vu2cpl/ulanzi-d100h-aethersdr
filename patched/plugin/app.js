@@ -152,7 +152,16 @@ function parseTci(msg) {
       // lookups returned -1 and pinned the cycle to entry 0.
       case 'modulation':   if (p.length >= 2) radio.mode = String(p[1]).toLowerCase();   break;
       case 'trx':          if (p.length >= 2) radio.transmitting = p[1] === 'true';      break;
-      case 'tune':         if (p.length >= 1) radio.tuning       = p[0] === 'true';      break;
+      // AetherSDR answers `tune:<rx>,<bool>` (probed 2026-08-31), so the state
+      // is p[1].  Reading p[0] took the RECEIVER INDEX as the boolean, so
+      // radio.tuning was permanently false and cmdTuneToggle only ever sent
+      // `tune:0,true` — the button could start a tune cycle but never stop it.
+      case 'tune':
+        // Matches cmdTuneToggle, which targets receiver 0 — ATU tune is a
+        // radio-level action, not per-slice.  Don't filter on sliceIndex
+        // here or the two would disagree after a slice cycle.
+        if (p.length >= 2) radio.tuning = p[1] === 'true';
+        break;
       case 'rit_enable':   if (p.length >= 2) radio.ritOn        = p[1] === 'true';      break;
       // Accept both wire shapes: `split_enable:0,true` and a bare `mute:true`.
       case 'split_enable': radio.split  = (p.length >= 2 ? p[1] : p[0]) === 'true';      break;
