@@ -107,7 +107,7 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    the answer arrives, and fall back to `tune:0,false` if nothing answers within
    500 ms (the safe direction for a transmit action). An optimistic local mirror
    was rejected because an ATU cycle also ends on its own, which would degrade the
-   button to every-other-press.
+   button to every-other-press. **Verified working on the radio 2026-09-01.**
    (`rit_enable:` and `tune:` command formats were both probed and are correct.)
 
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
@@ -159,6 +159,7 @@ plugin files. The restore script refuses to run while it is up.
 ## Open items
 
 - [ ] **Untested by operator:** band stacking, and Slice Cycle's receiver retargeting.
+      (TUNE query-then-act was tested and works — 2026-09-01.)
 - [ ] `SLICE_COUNT` is hardcoded to **2**. AetherSDR reports `trx_count:1` yet answers
       on receiver index 1 with independent state (3.553 MHz CW), so the real slice
       count can't be inferred from TCI. Set it to match actual operating practice.
