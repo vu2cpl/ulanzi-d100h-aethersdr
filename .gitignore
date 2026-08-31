@@ -1,0 +1,6 @@
+# Timestamped copies of whatever the restore script overwrote — local safety
+# net, not history worth keeping.
+backups/
+
+.DS_Store
+node_modules/

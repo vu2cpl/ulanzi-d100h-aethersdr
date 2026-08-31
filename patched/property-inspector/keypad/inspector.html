@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AetherSDR Keypad action settings</title>
+  <link rel="stylesheet" href="../../libs/common-html/css/uspi.css">
+  <script src="../../libs/common-html/js/constants.js"></script>
+  <script src="../../libs/common-html/js/eventEmitter.js"></script>
+  <script src="../../libs/common-html/js/timers.js"></script>
+  <script src="../../libs/common-html/js/utils.js"></script>
+  <script src="../../libs/common-html/js/ulanziApi.js"></script>
+</head>
+<body>
+  <div class="uspi-wrapper">
+    <form id="property-inspector">
+      <div class="uspi-item">
+        <div class="uspi-item-label" data-localize>AetherSDR TCI URL</div>
+        <input type="text" class="uspi-item-value" name="tci_url" value="ws://127.0.0.1:50001"
+               placeholder="ws://127.0.0.1:50001" />
+      </div>
+      <div class="uspi-item">
+        <div class="uspi-item-label" data-localize>Note</div>
+        <div class="uspi-item-value" style="opacity:0.7;font-size:12px">
+          The plugin maintains a single shared TCI connection.
+          Changing the URL here reconnects all AetherSDR actions.
+        </div>
+      </div>
+    </form>
+
+  <script>
+    // Resolve action UUID from the inspector's URL — set during onAdd.
+    let actionUuid = null;
+
+    $UD.onConnected((jsn) => { actionUuid = jsn.actionInfo && jsn.actionInfo.action; });
+
+    $UD.onAdd((message) => {
+      Utils.setFormValue(message.param || {}, '#property-inspector');
+    });
+
+    // Saved values come back as `settings` on this event; without it the form
+    // would show defaults again even though the profile has your choices.
+    $UD.onDidReceiveSettings((message) => {
+      Utils.setFormValue(message.settings || message.param || {}, '#property-inspector');
+    });
+
+    // The SDK instantiates $UD but never connects it.  Without this the
+    // websocket is undefined, send() silently no-ops, and NO property
+    // inspector setting is ever persisted (every ActionParam stayed {}).
+    // connect() also populates uuid/key/actionid from the page query string.
+    // connect() dereferences this.uuid, so pass a fallback for safety; the
+    // ?uuid= query param Studio supplies takes precedence over it.
+    $UD.connect('com.g0jkn.aethersdr.controller');
+
+    document.getElementById('property-inspector').addEventListener('change', () => {
+      const params = Utils.getFormValue('#property-inspector');
+      // setSettings persists; sendParamFromPlugin only notifies the plugin.
+      $UD.setSettings(params);
+      $UD.sendParamFromPlugin(params);
+    });
+  </script>
+  </div>
+</body>
+</html>
