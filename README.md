@@ -48,13 +48,27 @@ does not expose (antenna, slice focus, CW keyer, VFO lock).
 ## Layout
 
 ```
+profile/                     the D100H layout (7 buttons + knob)
 upstream-original/           pristine upstream v0.1.5, for diffing patches
 patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
 backups/                     what was overwritten, timestamped (created on first run)
+INSTALL.md                   installing on another Mac
+make-bundle.sh               build the self-contained install zip
 HANDOVER.md                  full story, gotchas, open items
 TCI-ACTIONS.md               all 50 assignable actions, probe-verified
 ```
+
+## Installing on another Mac
+
+```bash
+./make-bundle.sh            # -> ~/Downloads/d100h-aethersdr-macbook.zip
+```
+
+Bundles the patched plugin **with `node_modules`**, the profile, and
+[INSTALL.md](INSTALL.md). The target Mac needs neither npm nor system Node —
+Ulanzi Studio ships its own runtime. The script refuses to build if the
+installed plugin has drifted from `patched/`.
 
 ## Gotchas
 

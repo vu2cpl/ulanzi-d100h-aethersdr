@@ -183,6 +183,21 @@ plugin files. The restore script refuses to run while it is up.
 
 ---
 
+## Deploying to another Mac
+
+`./make-bundle.sh` produces a self-contained zip (patched plugin including
+`node_modules`, the profile from `profile/`, and INSTALL.md). It refuses to build
+unless the installed plugin matches `patched/`, so a reverted install cannot ship.
+
+`profile/` is the operator layout — 7 buttons + knob, 8 assignments. It binds to
+the D100H by device UUID `4250315A3538380201E26E435603F278`, which comes from the
+dial itself, so pair the dial on the target Mac **before** first launching Studio
+there or the profile will not attach.
+
+The built zip is deliberately NOT committed: it is derived, it would drift from
+`patched/` silently, and it carries `node_modules`, which `.gitignore` excludes.
+Attach it to a GitHub release if a fixed artifact is ever needed.
+
 ## Diffing against upstream
 
 `upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
