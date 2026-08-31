@@ -175,6 +175,16 @@ plugin files. The restore script refuses to run while it is up.
 
 ---
 
+## Diffing against upstream
+
+`upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
+seven patches can be inspected against their true baseline and bug reports can
+cite original line numbers:
+
+```bash
+diff -u upstream-original/plugin/app.js patched/plugin/app.js
+```
+
 ## Assignable actions
 
 See **[TCI-ACTIONS.md](TCI-ACTIONS.md)** — all 50 assignable actions, probed live

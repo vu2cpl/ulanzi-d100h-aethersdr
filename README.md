@@ -48,6 +48,7 @@ does not expose (antenna, slice focus, CW keyer, VFO lock).
 ## Layout
 
 ```
+upstream-original/           pristine upstream v0.1.5, for diffing patches
 patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
 backups/                     what was overwritten, timestamped (created on first run)
