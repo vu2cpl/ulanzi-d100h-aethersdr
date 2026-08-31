@@ -1,6 +1,6 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-01
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 
 ---
@@ -97,11 +97,17 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
      (`if:<rx>,<sub_rx>,<hz>`), so every Slice Cycle press fired a malformed IF
      command. Removed.
 
-7. **TUNE could not be switched off.** `tune:` is answered as `tune:<rx>,<bool>`,
-   but the parser read the state from `p[0]` — the *receiver index* — so
-   `radio.tuning` was permanently `false` and `cmdTuneToggle()` only ever sent
-   `tune:0,true`. The button could start a tune cycle but never stop one, and
-   tune keys the transmitter. Parser now reads `p[1]`.
+7. **TUNE could not be switched off.** Two compounding faults. The parser read
+   the state from `p[0]` — the *receiver index* — instead of `p[1]`. Fixing that
+   was not enough: **AetherSDR never broadcasts tune state changes**, it only
+   answers a direct `tune:0;` query, so any parser-derived mirror stays stale
+   forever and `!radio.tuning` was always `true`. The button could start a tune
+   cycle but never stop one, and tune keys the transmitter.
+   TUNE is now **query-then-act**: ask for the live value, send the opposite when
+   the answer arrives, and fall back to `tune:0,false` if nothing answers within
+   500 ms (the safe direction for a transmit action). An optimistic local mirror
+   was rejected because an ATU cycle also ends on its own, which would degrade the
+   button to every-other-press.
    (`rit_enable:` and `tune:` command formats were both probed and are correct.)
 
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
@@ -167,6 +173,12 @@ plugin files. The restore script refuses to run while it is up.
       reported a VFO B for the slice. Silent by design; may look broken.
 
 ---
+
+## Assignable actions
+
+See **[TCI-ACTIONS.md](TCI-ACTIONS.md)** — all 50 assignable actions, probed live
+against the radio, split into implemented / available-to-add / confirmed-impossible,
+with the observed wire shape for each and the probe method to re-check.
 
 ## Related
 

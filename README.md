@@ -35,9 +35,15 @@ refuses to run while it is up. Restart Studio afterwards.
 | 4 | Valid AetherSDR mode tokens (`usb`/`lsb`/`cwr`/`digu`; `CW`/`AM`/`FM` don't exist) |
 | 5 | Band stacking, and band defaults moved off the band edges |
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
-| 7 | TUNE toggle read its state from the receiver index, so it could start a tune cycle but never stop it |
+| 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
 
 Patches 1–4 and 7 are genuine upstream bugs worth reporting to G0JKN.
+
+## Assignable actions
+
+[TCI-ACTIONS.md](TCI-ACTIONS.md) lists all 50, probed live against the radio:
+what the plugin already does, what can be added, and what AetherSDR simply
+does not expose (antenna, slice focus, CW keyer, VFO lock).
 
 ## Layout
 
@@ -46,6 +52,7 @@ patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
 backups/                     what was overwritten, timestamped (created on first run)
 HANDOVER.md                  full story, gotchas, open items
+TCI-ACTIONS.md               all 50 assignable actions, probe-verified
 ```
 
 ## Gotchas

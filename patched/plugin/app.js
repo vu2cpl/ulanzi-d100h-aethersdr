@@ -21,7 +21,11 @@ const DEBUG = false;
 const DEBUG_LOG = '/tmp/aethersdr-ulanzi-debug.log';
 function dbg(msg) {
   if (!DEBUG) return;
-  try { fs.appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}
+  // Local Bangalore time (IST), NOT UTC — AetherSDR's own log is local, and
+  // mixed timezones make correlating the two logs needlessly painful.
+  const ts = new Date().toLocaleString('en-GB',
+    { timeZone: 'Asia/Kolkata', hour12: false });
+  try { fs.appendFileSync(DEBUG_LOG, `${ts} IST ${msg}\n`); } catch (e) {}
 }
 
 // ─── State ───────────────────────────────────────────────────────────────
@@ -152,15 +156,19 @@ function parseTci(msg) {
       // lookups returned -1 and pinned the cycle to entry 0.
       case 'modulation':   if (p.length >= 2) radio.mode = String(p[1]).toLowerCase();   break;
       case 'trx':          if (p.length >= 2) radio.transmitting = p[1] === 'true';      break;
-      // AetherSDR answers `tune:<rx>,<bool>` (probed 2026-08-31), so the state
-      // is p[1].  Reading p[0] took the RECEIVER INDEX as the boolean, so
-      // radio.tuning was permanently false and cmdTuneToggle only ever sent
-      // `tune:0,true` — the button could start a tune cycle but never stop it.
+      // AetherSDR answers `tune:<rx>,<bool>`, so the state is p[1]; reading p[0]
+      // took the RECEIVER INDEX as the boolean.  Targets receiver 0 — ATU tune is
+      // radio-level — so this deliberately does not filter on sliceIndex the way
+      // vfo/mute/modulation do.  Completes the query started by doTuneToggle().
       case 'tune':
-        // Matches cmdTuneToggle, which targets receiver 0 — ATU tune is a
-        // radio-level action, not per-slice.  Don't filter on sliceIndex
-        // here or the two would disagree after a slice cycle.
-        if (p.length >= 2) radio.tuning = p[1] === 'true';
+        if (p.length >= 2) {
+          radio.tuning = p[1] === 'true';
+          if (pendingTuneToggle) {
+            pendingTuneToggle = false;
+            clearTimeout(tuneFallbackTimer);
+            tciSend(`tune:0,${!radio.tuning};`);
+          }
+        }
         break;
       case 'rit_enable':   if (p.length >= 2) radio.ritOn        = p[1] === 'true';      break;
       // Accept both wire shapes: `split_enable:0,true` and a bare `mute:true`.
@@ -202,7 +210,28 @@ const COARSE_MULT     = 10;      // press+rotate is ×10 the step
 const GAIN_STEP       = 5;       // ±5 per press for AF / RF / mic gain (range 0–100)
 
 function cmdMoxToggle()       { return `trx:0,${!radio.transmitting};`; }
-function cmdTuneToggle()      { return `tune:0,${!radio.tuning};`; }
+// TUNE is query-then-act, not a blind toggle.  AetherSDR never BROADCASTS
+// tune state changes (verified 2026-09-01: it only answers a direct `tune:0;`
+// query), so a parser mirror never updates.  An optimistic local mirror is no
+// good either, because an ATU cycle also finishes on its own — the mirror goes
+// stale and the button degrades to every-other-press.  So: ask for the live
+// value, then send the opposite when the answer arrives.
+let pendingTuneToggle = false;
+let tuneFallbackTimer = 0;
+
+function doTuneToggle() {
+  if (pendingTuneToggle) return;             // ignore double-taps mid-round-trip
+  pendingTuneToggle = true;
+  tciSend('tune:0;');
+  // If no answer arrives, stop tuning rather than start it — this action keys
+  // the transmitter, so the safe fallback is always "off".
+  clearTimeout(tuneFallbackTimer);
+  tuneFallbackTimer = setTimeout(() => {
+    if (!pendingTuneToggle) return;
+    pendingTuneToggle = false;
+    tciSend('tune:0,false;');
+  }, 500);
+}
 function cmdRitToggle()       { return `rit_enable:0,${!radio.ritOn};`; }
 function cmdSplitToggle()     { return `split_enable:0,${!radio.split};`; }
 function cmdMuteToggle()      { return `mute:${radio.sliceIndex},${!radio.muted};`; }
@@ -368,7 +397,7 @@ $UD.onKeyDown((jsn) => {
   console.log(`[keydown] ${cache.actionId}`);
   switch (cache.actionId) {
     case `${PLUGIN_UUID}.mox`:         tciSend(cmdMoxToggle());   break;
-    case `${PLUGIN_UUID}.tune`:        tciSend(cmdTuneToggle());  break;
+    case `${PLUGIN_UUID}.tune`:        doTuneToggle();            break;
     case `${PLUGIN_UUID}.modeCycle`:   tciSend(cmdModeNext());    break;
     case `${PLUGIN_UUID}.bandUp`:      changeBand(+1);            break;
     case `${PLUGIN_UUID}.bandDown`:    changeBand(-1);            break;
