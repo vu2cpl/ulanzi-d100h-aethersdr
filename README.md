@@ -11,7 +11,7 @@ script to re-apply them after a plugin update.
 
 ## Why this exists
 
-A plugin update overwrites the plugin directory and wipes `node_modules`. All nine
+A plugin update overwrites the plugin directory and wipes `node_modules`. All fourteen
 patches below revert, and the failure mode is a controller that looks completely
 dead while the Studio profile still looks perfect.
 
@@ -38,8 +38,14 @@ refuses to run while it is up. Restart Studio afterwards.
 | 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
 | 8 | AF Gain / Mic Gain sent `volume:0,<v>;` and `mic_level:0,<v>;` to verbs that take **no** receiver index — AE read the index as the value, so every press wrote **0** |
 | 9 | Dial tuned the RX VFO under split — `cmdSetFreq()` hardcoded channel 0, so "split, then spin" moved RX and left TX put. Split now steers the knob to VFO B (`vfo:<rx>,1`) |
+| 10 | Split was a blind toggle on an unconfirmed mirror — one flip out of step and the dial drove the wrong VFO forever. Now query-then-act, like TUNE (patch 7) |
+| 11 | Split now parks the TX slice **1 kHz up on CW, 5 kHz on SSB**, and survives AetherSDR resetting VFO B to VFO A *twice* on enable |
+| 12 | Mode cycle listed `cwr` but AE reports `cw`, so `indexOf` returned −1 and the cycle reset to entry 0 whenever the radio was on CW. Now CW / USB / DIGU / LSB |
+| 13 | Mute was per-receiver, leaving the other slice audible. Now masters every open slice, tracking the (dynamic) `trx_count` |
+| 14 | Knob press is fast/slow tune step. It was VFO A/B swap, which under split trades RX and TX — the wrong thing to have under your thumb mid-pileup |
 
-Patches 1–4 and 7–9 are genuine upstream bugs worth reporting to G0JKN.
+Patches 1–4, 7–10 and 12–13 are genuine upstream bugs worth reporting to G0JKN.
+Patches 11 and 14 are operator preference, not defects.
 
 ## Assignable actions
 

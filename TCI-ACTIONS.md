@@ -94,6 +94,13 @@ the TX path.
 
 ## C. NOT possible — probed and silent
 
+**Mode tokens — `cw` AND `cwr` both exist.** `modulations_list;` answers
+`usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty` (2026-09-01). AetherSDR *reports*
+`cw`, so a cycle built on `cwr` never matches the live mode and pins itself to
+entry 0 — patch 12. Query the list rather than trusting any written-down set.
+
+**`trx_count` is dynamic**, not a constant: 2 with a second slice open, 1 without.
+
 `vfo_lock`, `mon_enable`, `mon_volume`, `cw_keyer_speed`,
 `cw_macros_speed`, `cw_macros_delay`, `spot`, `keyer`, `iq_start`.
 

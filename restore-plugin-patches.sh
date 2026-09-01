@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #   A plugin update from upstream overwrites the plugin directory and wipes
-#   node_modules.  Every one of the nine fixes below then reverts, and the
+#   node_modules.  Every one of the fourteen fixes below then reverts, and the
 #   symptom is a controller that looks completely dead — the profile still
 #   looks correct, the buttons just do nothing.  Run this after any update.
 #
@@ -22,6 +22,15 @@
 #   9. Dial tuned the RX VFO under split — cmdSetFreq() hardcoded channel 0.
 #      Split now steers the knob to VFO B (vfo:<rx>,1), and split_enable is
 #      parsed with the sliceIndex filter the other verbs already had
+#  10. Split was a blind toggle on a mirror AE never confirmed; once out of step
+#      the dial drove the wrong VFO forever.  Now query-then-act, like TUNE
+#  11. Split parks the TX slice 1 kHz up on CW / 5 kHz on SSB, and survives AE
+#      resetting VFO B to VFO A twice on enable
+#  12. Mode cycle listed `cwr` but AE reports `cw`, so it could never leave CW.
+#      Now CW / USB / DIGU / LSB
+#  13. Mute was per-receiver; now masters every open slice via trx_count
+#  14. Knob press is fast/slow tune step, not VFO A/B swap (swap trades RX and
+#      TX under split).  Needs press_action=step_toggle in the profile
 #
 # Usage:  ./restore-plugin-patches.sh [--check]
 #         --check  report status only, change nothing

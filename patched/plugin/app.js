@@ -60,6 +60,8 @@ const radio = {
   sqlOn: false, split: false, locked: false,
   ritOn: false, xitOn: false,
   vfoB: null,              // VFO B (channel 1); null until AE reports it
+  trxCount: 1,             // receivers AE currently has open — DYNAMIC, see doMuteToggle
+  fastStep: false,         // knob press toggles slow <-> fast tuning step
 };
 
 // Band centres for "band up" / "band down".  Matches the Stream Deck
@@ -87,7 +89,12 @@ const BAND_ORDER = Object.keys(BANDS);
 // sam, nfm, digu, digl, rtty.  'CW', 'AM' and 'FM' are NOT valid there.
 // Operator's working set.  AetherSDR also accepts digl/sam/nfm/rtty, but
 // cycling through modes you never use just makes the button slower.
-const MODE_CYCLE = ['usb', 'lsb', 'digu', 'cwr'];
+// AetherSDR's full vocabulary (queried via `modulations_list;` 2026-09-01) is
+// usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty.  Note BOTH `cw` and `cwr` exist
+// and AE REPORTS `cw` — the old cycle listed `cwr`, so MODE_CYCLE.indexOf('cw')
+// returned -1 and the cycle silently reset to entry 0 every time the radio was
+// on CW.  Same class of fault as patch 4.  Operator's requested set, any order.
+const MODE_CYCLE = ['cw', 'usb', 'digu', 'lsb'];
 
 function closestBandIndex(freq) {
   let best = 0, bestDist = Infinity;
@@ -178,7 +185,19 @@ function parseTci(msg) {
       // left the mirror holding receiver 1's split state for receiver 0.
       case 'split_enable':
         if (p.length >= 2) {
-          if (parseInt(p[0]) === radio.sliceIndex) radio.split = p[1] === 'true';
+          if (parseInt(p[0]) === radio.sliceIndex) {
+            radio.split = p[1] === 'true';
+            // Completes the query started by doSplitToggle(): the radio has just
+            // told us its real state, so send the opposite and adopt it locally.
+            if (pendingSplitToggle) {
+              pendingSplitToggle = false;
+              clearTimeout(splitFallbackTimer);
+              radio.split = !radio.split;
+              tciSend(`split_enable:${radio.sliceIndex},${radio.split};`);
+              if (radio.split) placeSplitOffset();
+              else { pendingSplitOffsetHz = null; clearTimeout(splitOffsetTimer); }
+            }
+          }
         } else {
           radio.split = p[0] === 'true';
         }
@@ -204,6 +223,7 @@ function parseTci(msg) {
         radio.volume = raw >= 1 ? Math.min(raw, 100) : dbToPercent(raw);
         break;
       }
+      case 'trx_count':    radio.trxCount = Math.max(1, parseInt(p[0]) || 1); break;
       case 'drive':        radio.rfPower  = parseInt(p.length >= 2 ? p[1] : p[0]); break;
       case 'mic_level':    radio.micLevel = parseInt(p[0]); break;
     }
@@ -240,8 +260,108 @@ function doTuneToggle() {
   }, 500);
 }
 function cmdRitToggle()       { return `rit_enable:0,${!radio.ritOn};`; }
-function cmdSplitToggle()     { return `split_enable:0,${!radio.split};`; }
-function cmdMuteToggle()      { return `mute:${radio.sliceIndex},${!radio.muted};`; }
+
+// SPLIT is query-then-act, for the same reason TUNE is (see doTuneToggle above),
+// but with a worse failure mode.  It used to be a blind toggle:
+//
+//     split_enable:0,${!radio.split}
+//
+// which trusts a mirror the radio only refreshes on its own broadcasts.  Get one
+// flip out of step — an AetherSDR restart will do it — and the key sends the value
+// the radio already holds (a no-op) while the mirror flips anyway.  From then on
+// the two disagree permanently, and because patch 9 steers the DIAL off
+// radio.split, the knob silently tunes the wrong VFO.  Observed 2026-09-01: AE
+// reported split off for a full 75 s while the plugin wrote `vfo:0,1`.
+//
+// `split_enable:<rx>;` is a genuine query — verified on the radio, it answers
+// `split_enable:0,false;` and writes nothing.
+//
+// Unlike TUNE, the mirror IS updated optimistically here.  That was rejected for
+// tune because an ATU cycle also ends by itself, so the mirror would go stale;
+// split only ever changes when something commands it, and AetherSDR broadcasts
+// the GUI-originated changes (verified: 4 toggles in a 90 s capture).  So the
+// value we just commanded is authoritative until told otherwise — which is what
+// the dial needs between presses.
+let pendingSplitToggle = false;
+let splitFallbackTimer = 0;
+
+// How far above the RX frequency the TX slice is parked when split is switched
+// on.  Operator's convention, matching normal DX practice: SSB pileups spread
+// wider than CW ones.
+const SPLIT_OFFSET_SSB_HZ = 5000;
+const SPLIT_OFFSET_HZ     = 1000;
+function splitOffsetHz() {
+  const m = String(radio.mode || '').toLowerCase();
+  return (m === 'usb' || m === 'lsb') ? SPLIT_OFFSET_SSB_HZ : SPLIT_OFFSET_HZ;
+}
+
+// Set once split has just been switched ON, and consumed by the `vfo` parser
+// case below.  AetherSDR resets VFO B to VFO A *after* it processes
+// split_enable (observed 2026-09-01: `split_enable:0,true` then
+// `vfo:0,1,<A>` in the same tick), so writing the offset immediately would be
+// overwritten.  We wait for AE's own channel-1 report and place it then.
+let pendingSplitOffsetHz = null;
+let splitOffsetTimer = 0;
+
+// Park the TX slice above RX after split comes on.
+//
+// This CANNOT be done on AetherSDR's channel-1 report: AE resets VFO B to VFO A
+// *twice* when split is enabled, and the second reset lands after our write and
+// wipes it.  Observed 2026-09-01 on CW:
+//
+//   32.5s  SPLIT = true
+//   32.5s  TX-B -> 21008100   (+1000, ours)
+//   32.6s  TX-B -> 21007100   (+0, AE's second reset — offset gone)
+//
+// So: let AE settle, write the offset, then verify and rewrite once if it was
+// clobbered again.  The verify pass is what makes this robust to AE's timing
+// rather than to a delay we guessed.
+function placeSplitOffset() {
+  const target = radio.frequency + splitOffsetHz();
+  pendingSplitOffsetHz = target;
+  clearTimeout(splitOffsetTimer);
+  splitOffsetTimer = setTimeout(() => {
+    if (pendingSplitOffsetHz === null) return;
+    tciSend(`vfo:${radio.sliceIndex},1,${target};`);
+    radio.vfoB = target;
+    splitOffsetTimer = setTimeout(() => {
+      pendingSplitOffsetHz = null;
+      // Still not there — AE overrode us again.  One retry, then leave it be
+      // rather than fighting the radio in a loop.
+      if (radio.split && radio.vfoB !== target) {
+        tciSend(`vfo:${radio.sliceIndex},1,${target};`);
+        radio.vfoB = target;
+      }
+    }, 400);
+  }, 600);
+}
+
+function doSplitToggle() {
+  if (pendingSplitToggle) return;            // ignore double-taps mid-round-trip
+  pendingSplitToggle = true;
+  tciSend(`split_enable:${radio.sliceIndex};`);
+  // If nothing answers, fall back to the old blind toggle rather than leaving the
+  // key dead.  Split does not key the transmitter, so unlike TUNE there is no
+  // "safe direction" to prefer — best effort on the mirror is the right fallback.
+  clearTimeout(splitFallbackTimer);
+  splitFallbackTimer = setTimeout(() => {
+    if (!pendingSplitToggle) return;
+    pendingSplitToggle = false;
+    radio.split = !radio.split;
+    tciSend(`split_enable:${radio.sliceIndex},${radio.split};`);
+  }, 500);
+}
+// MASTER audio mute.  `mute` is receiver-indexed in AetherSDR (`mute:<rx>,<bool>`
+// — patch 6), so muting only radio.sliceIndex left the other slice audible, which
+// is not what a mute key is for.  Mute every receiver AE currently reports.
+// trx_count is DYNAMIC: it read 1 with a single slice and 2 while split had a
+// second slice open (both observed 2026-09-01), so it is tracked from the wire
+// rather than assumed.
+function doMuteToggle() {
+  const next = !radio.muted;
+  for (let rx = 0; rx < Math.max(1, radio.trxCount); rx++) tciSend(`mute:${rx},${next};`);
+  radio.muted = next;   // optimistic: mute only changes when commanded
+}
 
 // Momentary PTT — explicit on/off, NOT a toggle.  Key/dial down keys the
 // radio, release unkeys it.  Distinct from `mox` (cmdMoxToggle) which flips.
@@ -458,8 +578,8 @@ $UD.onKeyDown((jsn) => {
     case `${PLUGIN_UUID}.bandDown`:    changeBand(-1);            break;
     case `${PLUGIN_UUID}.sliceCycle`:  doSliceCycle();            break;
     case `${PLUGIN_UUID}.ritToggle`:   tciSend(cmdRitToggle());   break;
-    case `${PLUGIN_UUID}.splitToggle`: tciSend(cmdSplitToggle()); break;
-    case `${PLUGIN_UUID}.muteToggle`:  tciSend(cmdMuteToggle());  break;
+    case `${PLUGIN_UUID}.splitToggle`: doSplitToggle();            break;
+    case `${PLUGIN_UUID}.muteToggle`:  doMuteToggle();            break;
     // Momentary: key DOWN transmits; the onKeyUp handler below unkeys.
     case `${PLUGIN_UUID}.pttMomentary`: tciSend(cmdPttOn());      break;
     // Direct-mode actions — for D200H pages that prefer explicit keys over cycling.
@@ -529,8 +649,12 @@ function actionIdFor(jsn) {
 function dialRotate(jsn, direction, coarse) {
   const id = actionIdFor(jsn);
   if (id !== null && id !== `${PLUGIN_UUID}.vfo`) return;
+  // Three rates: slow (step_hz), fast (step_hz x coarse_mult, latched by the
+  // knob press), and press-and-rotate which multiplies again on top of either.
+  const mult = intSetting(jsn, 'coarse_mult', COARSE_MULT);
   const hz = intSetting(jsn, 'step_hz', TX_STEP_HZ)
-           * (coarse ? intSetting(jsn, 'coarse_mult', COARSE_MULT) : 1);
+           * (radio.fastStep ? mult : 1)
+           * (coarse ? mult : 1);
   tciSend(cmdTuneTo(tuneBaseHz() + direction * hz));
 }
 
@@ -541,8 +665,8 @@ $UD.onDialRotateHoldLeft((jsn)  => dialRotate(jsn, -1, true));
 
 $UD.onDialDown((jsn) => {
   switch (actionIdFor(jsn)) {
-    case `${PLUGIN_UUID}.splitToggle`:  tciSend(cmdSplitToggle()); return;
-    case `${PLUGIN_UUID}.muteToggle`:   tciSend(cmdMuteToggle());  return;
+    case `${PLUGIN_UUID}.splitToggle`:  doSplitToggle();            return;
+    case `${PLUGIN_UUID}.muteToggle`:   doMuteToggle();            return;
     case `${PLUGIN_UUID}.pttMomentary`: tciSend(cmdPttOn());       return;
   }
   // VFO Tune (or an unresolved action): honour the inspector's
@@ -552,6 +676,13 @@ $UD.onDialDown((jsn) => {
     case 'none':                                    break;
     case 'mode_cycle': tciSend(cmdModeNext());      break;
     case 'vfo_swap':   doVfoSwap();                 break;
+    // Operator's layout: the knob press selects the tuning rate rather than
+    // swapping VFOs (a swap is only meaningful with 2+ slices to switch
+    // between, and the Split key owns that now).
+    case 'step_toggle':
+      radio.fastStep = !radio.fastStep;
+      console.log(`[vfo] step now ${radio.fastStep ? 'FAST' : 'SLOW'}`);
+      break;
     default:           tciSend(cmdMoxToggle());     break;
   }
 });

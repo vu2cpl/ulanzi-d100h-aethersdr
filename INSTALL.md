@@ -3,7 +3,7 @@
 Self-contained. `node_modules` is bundled, and Ulanzi Studio ships its own Node
 runtime, so **no `npm` and no system Node are needed**.
 
-This is Nigel Fenton (G0JKN)'s *AetherSDR Controller* plugin with nine local
+This is Nigel Fenton (G0JKN)'s *AetherSDR Controller* plugin with fourteen local
 patches applied — the stock plugin does not work against AetherSDR as shipped.
 
 ## Before you start
@@ -71,7 +71,7 @@ Layout as shipped (7 buttons + knob):
 
 | Position | Action |
 |----------|--------|
-| Knob | VFO Tune (100 Hz step, ×10 coarse = 1 kHz, press = VFO A/B swap) |
+| Knob | VFO Tune — tunes the **TX** slice always (100 Hz, press = fast/slow step) |
 | Group of 3 | Split Enable · Band Up · Band Down |
 | Group of 2 | PTT (Momentary) · Mode Cycle |
 | Group of 2 | Mute · TUNE / ATU |
@@ -79,7 +79,10 @@ Layout as shipped (7 buttons + knob):
 Step size, coarse multiplier and the dial-press action are per-action settings
 saved in the profile, not compiled in — change them in Studio's property
 inspector for the VFO Tune action. The shipped values are the operating desk's:
-`step_hz` 100, `coarse_mult` 10, `press_action` vfo_swap.
+`step_hz` 100, `coarse_mult` 10, `press_action` step_toggle.
+
+Split is Flex-style: one press opens the TX slice **1 kHz up on CW, 5 kHz on
+SSB**, and the knob then tunes that slice while RX stays on the DX.
 
 Taken from the profile manifest, which groups the keys as `1_0…1_2` (the row of
 three) and `0_0…0_1` / `2_0…2_1` (the pairs). Which pair lands on the left and
@@ -126,7 +129,7 @@ plugin uses TCI instead.
 
 ## Keeping it working
 
-A plugin update from upstream reverts all nine patches at once and the
+A plugin update from upstream reverts all fourteen patches at once and the
 controller goes dead while the profile still looks fine. The patches, their
 reasoning and a restore script live in the private repo
 `vu2cpl/ulanzi-d100h-aethersdr`.

@@ -68,7 +68,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Nine local patches to the plugin. **A plugin update reverts every one of them**,
+Fourteen local patches to the plugin. **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -153,7 +153,51 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    frequency each time split is enabled, so the TX offset is set after enabling,
    not before.
 
-10. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
+10. **Split was a blind toggle on a mirror the radio never confirmed.**
+    `split_enable:0,${!radio.split}` trusts a value AetherSDR only refreshes on
+    its *own* broadcasts. One flip out of step — an AE restart will do it — and
+    the key sends the state the radio already holds (a no-op) while the mirror
+    flips anyway. The two then disagree permanently, and since patch 9 steers the
+    dial off `radio.split`, the knob silently tunes the wrong VFO. Caught on the
+    wire 2026-09-01: AE reported split off for a full 75 s while the plugin was
+    writing `vfo:0,1`. Now query-then-act, the patch-7 shape.
+    Unlike TUNE the mirror IS updated optimistically, because split only changes
+    when something commands it (and AE broadcasts GUI changes), whereas an ATU
+    cycle ends by itself. `split_enable:<rx>;` was verified to be a genuine query.
+
+11. **Split now parks the TX slice, Flex-style.** One press opens the TX slice
+    **1 kHz up on CW, 5 kHz up on SSB** (operator's convention — SSB pileups
+    spread wider), then the knob tunes that slice while RX stays on the DX.
+    DIGU/DIGL/RTTY take the 1 kHz offset as narrow modes; say so if data should
+    behave like SSB.
+    The trap: AetherSDR resets VFO B to VFO A **twice** when split is enabled,
+    and the second reset lands *after* a write placed on the first channel-1
+    report — so the event-driven version was silently clobbered:
+    `SPLIT=true → TX-B +1000 (ours) → TX-B +0 (AE)`. Now it lets AE settle,
+    writes, then verifies and rewrites once. Verified on the radio: +1000 on cw,
+    +5000 on usb, both holding.
+
+12. **Mode cycle could not leave CW.** The cycle listed `cwr`, but AetherSDR
+    *reports* `cw` — both tokens exist (`modulations_list;` answers
+    `usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty`). So `MODE_CYCLE.indexOf('cw')`
+    returned −1 and the cycle reset to entry 0 every time the radio was on CW.
+    Exactly the fault patch 4 fixed, surviving in a different token. Now
+    **CW / USB / DIGU / LSB**, the operator's set.
+
+13. **Mute was per-receiver, not master.** `mute:<rx>,<bool>` (patch 6) was sent
+    only for `radio.sliceIndex`, so under split the other slice stayed audible.
+    Now mutes every open receiver. `trx_count` is tracked from the wire because
+    it is **dynamic** — see the correction in Open items.
+
+14. **Knob press is fast/slow tune step, not VFO A/B swap.** Swap trades RX and
+    TX under split, which is the last thing wanted under your thumb during a
+    pileup; it is only meaningful with 2+ slices to switch between, and the Split
+    key owns that now. New `step_toggle` press action, added to the VFO property
+    inspector, and the profile switched to it. Three rates: slow (`step_hz`),
+    fast (`step_hz × coarse_mult`, latched by the press), and press-and-rotate
+    multiplying again on top of either.
+
+15. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
    (one argument reads, a value writes and confirms first) so the `verb:0;` mistake
    cannot recur, and shipped it in the install bundle. `INSTALL.md`'s key-layout
    table was wrong — it listed a **MOX Toggle** the profile does not contain and
@@ -313,12 +357,13 @@ plugin files. The restore script refuses to run while it is up.
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session
       through 31 Aug ran at `gain=1` — i.e. `tx_gain:100`. Read it with
       `./tci-probe.sh tx_gain`, set it with `./tci-probe.sh tx_gain 100`.
-- [ ] `SLICE_COUNT` is hardcoded to **2**. Earlier note said AetherSDR reports
-      `trx_count:1`; the untruncated burst on 2026-09-01 in fact reports
-      **`trx_count:2; channels_count:2;`**, and receiver 1 carries fully independent
-      state (its own `vfo`, `modulation`, `split_enable`, `agc_mode`). So 2 is right
-      for this AE build — but it is still hardcoded rather than read from
-      `trx_count`, which is what should happen.
+- [ ] `SLICE_COUNT` is hardcoded to **2**. **`trx_count` is DYNAMIC** — it read
+      `2` while split had a second slice open and `1` an hour later with a single
+      slice (both 2026-09-01). So the original note (`trx_count:1`) and the
+      "correction" to 2 were each right at the moment they were taken, and each
+      wrong as a general statement. Do not treat it as a constant: patch 13 reads
+      it off the wire into `radio.trxCount`, and `SLICE_COUNT` should do the same
+      instead of being hardcoded.
 - [ ] **Visible slice switching** is possible via a different route: AetherSDR's
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR
@@ -359,7 +404,7 @@ Attach it to a GitHub release if a fixed artifact is ever needed.
 ## Diffing against upstream
 
 `upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
-nine patches can be inspected against their true baseline and bug reports can
+fourteen patches can be inspected against their true baseline and bug reports can
 cite original line numbers:
 
 ```bash
