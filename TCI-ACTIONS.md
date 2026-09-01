@@ -99,7 +99,16 @@ the TX path.
 `cw`, so a cycle built on `cwr` never matches the live mode and pins itself to
 entry 0 — patch 12. Query the list rather than trusting any written-down set.
 
-**`trx_count` is dynamic**, not a constant: 2 with a second slice open, 1 without.
+**`trx_count` is dynamic**, but it counts RECEIVERS, not split. Enabling split
+leaves it at 1 — split uses VFO channel B of the same receiver (`channels_count:2`),
+it does not open a receiver. It reads 2 when the operator has a second receiver
+open in AetherSDR. Verified 2026-09-01.
+
+**`active_slice` is READ-ONLY status.** `active_slice:<n>,<A|B>` is in the connect
+burst and tracks reality — enabling split moved it `0,A` -> `1,B` unprompted and
+disabling put it back — but writes are silently discarded, with or without a second
+slice open (`active_slice:0,B;` tested both ways). So it does **not** overturn "no
+slice switching" above; it is a useful thing to read, never a control to send.
 
 `vfo_lock`, `mon_enable`, `mon_volume`, `cw_keyer_speed`,
 `cw_macros_speed`, `cw_macros_delay`, `spot`, `keyer`, `iq_start`.

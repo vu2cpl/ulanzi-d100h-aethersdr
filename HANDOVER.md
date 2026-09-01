@@ -375,21 +375,22 @@ plugin files. The restore script refuses to run while it is up.
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session
       through 31 Aug ran at `gain=1` — i.e. `tx_gain:100`. Read it with
       `./tci-probe.sh tx_gain`, set it with `./tci-probe.sh tx_gain 100`.
-- [ ] `SLICE_COUNT` is hardcoded to **2**. **`trx_count` is DYNAMIC** — it read
-      `2` while split had a second slice open and `1` an hour later with a single
-      slice (both 2026-09-01). So the original note (`trx_count:1`) and the
-      "correction" to 2 were each right at the moment they were taken, and each
-      wrong as a general statement. Do not treat it as a constant: patch 13 reads
-      it off the wire into `radio.trxCount`, and `SLICE_COUNT` should do the same
-      instead of being hardcoded.
-- [ ] **`active_slice` may be the slice-focus verb TCI-ACTIONS says doesn't exist.**
-      Found 2026-09-01 by the first `tci-watch.sh` run: the connect burst contains
-      `active_slice:0,A;`, while TCI-ACTIONS records "no slice switching" on the
-      basis that `set_in_focus` and `rx_channel_enable` are silently ignored.
-      **Not tested for writability** — `active_slice:0,B;` was deliberately not
-      sent. If it writes, it is a far cleaner route than the Studio Hotkey path
-      below, and Slice Cycle could finally move AetherSDR's own focus instead of
-      only retargeting which receiver the plugin addresses.
+- [ ] `SLICE_COUNT` is hardcoded to **2**. **`trx_count` is dynamic and counts
+      RECEIVERS — not split.** Tested 2026-09-01: with split enabled it stays at
+      `1`, because split uses VFO channel B of the same receiver
+      (`channels_count:2`) rather than opening a receiver. It reads `2` when a
+      second receiver is genuinely open in AE. Two earlier notes here were wrong
+      about this — first that it is always 1, then that split makes it 2. Patch 13
+      reads it off the wire into `radio.trxCount`; `SLICE_COUNT` should too.
+- [x] **`active_slice` tested 2026-09-01 — READ-ONLY, not a slice-focus control.**
+      `tci-watch.sh` found `active_slice:0,A;` in the connect burst, which looked
+      like it might overturn the "no slice switching" verdict. It does not:
+      `active_slice:0,B;` is silently discarded, tested both with one slice and
+      with split open. The Studio Hotkey route below remains the only way to move
+      AetherSDR's own focus.
+      Worth reading though — it **tracks and broadcasts**: enabling split moved it
+      `0,A` -> `1,B` unprompted, disabling put it back. That is the active-slice
+      state the plugin currently has to infer, available for free.
 - [ ] **Visible slice switching** is possible via a different route: AetherSDR's
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR
