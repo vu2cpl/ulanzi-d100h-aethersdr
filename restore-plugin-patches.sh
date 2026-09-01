@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #   A plugin update from upstream overwrites the plugin directory and wipes
-#   node_modules.  Every one of the fourteen fixes below then reverts, and the
+#   node_modules.  Every one of the fourteen plugin fixes below then reverts, and the
 #   symptom is a controller that looks completely dead — the profile still
 #   looks correct, the buttons just do nothing.  Run this after any update.
 #

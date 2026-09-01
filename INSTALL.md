@@ -56,6 +56,7 @@ AetherSDR's full TCI state, which confirms the server is reachable and answering
 ```bash
 ./tci-probe.sh                 # state dump
 ./tci-probe.sh tx_gain         # query one verb — one argument always reads
+./tci-watch.sh 60              # which verbs broadcast — sends nothing at all
 ```
 
 **⚠️ Never probe a TCI verb by hand as `verb:0;`.** For verbs that take no receiver

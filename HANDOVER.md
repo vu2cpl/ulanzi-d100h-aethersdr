@@ -68,7 +68,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Fourteen local patches to the plugin. **A plugin update reverts every one of them**,
+Fourteen local patches to the plugin (items 15-16 below are tooling, not patches). **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -197,7 +197,12 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
     fast (`step_hz × coarse_mult`, latched by the press), and press-and-rotate
     multiplying again on top of either.
 
-15. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
+15. **`tci-watch.sh` added** — the broadcast-vs-query question has now caused
+    three patches (7, 9, 10), so it is a tool rather than a thing to re-derive.
+    Strictly read-only: unlike `tci-probe.sh` it sends nothing at all. Its first
+    run turned up `active_slice` (see Open items).
+
+16. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
    (one argument reads, a value writes and confirms first) so the `verb:0;` mistake
    cannot recur, and shipped it in the install bundle. `INSTALL.md`'s key-layout
    table was wrong — it listed a **MOX Toggle** the profile does not contain and
@@ -313,6 +318,19 @@ plugin files. The restore script refuses to run while it is up.
   every verb AE broadcasts. Read it with `./tci-probe.sh` — but only since the
   `ready;` truncation was fixed, or you will see 8 lines of a 120-line burst.
 
+  **Don't reason about this — measure it with `./tci-watch.sh`.** It watches the
+  stream read-only (it sends *nothing*, so it is safe mid-QSO) and reports which
+  verbs changed on their own versus which only appeared in the burst:
+
+  ```bash
+  ./tci-watch.sh                      # 60 s, every verb
+  ./tci-watch.sh 90 split_enable vfo  # just these, every change timestamped
+  ```
+
+  Exercise the control while it runs. "Burst only" is **not** proof of query-only —
+  a verb nobody touched cannot broadcast, and that ambiguity is exactly what made
+  patch 7's diagnosis take so long.
+
 ---
 
 ## Open items
@@ -364,6 +382,14 @@ plugin files. The restore script refuses to run while it is up.
       wrong as a general statement. Do not treat it as a constant: patch 13 reads
       it off the wire into `radio.trxCount`, and `SLICE_COUNT` should do the same
       instead of being hardcoded.
+- [ ] **`active_slice` may be the slice-focus verb TCI-ACTIONS says doesn't exist.**
+      Found 2026-09-01 by the first `tci-watch.sh` run: the connect burst contains
+      `active_slice:0,A;`, while TCI-ACTIONS records "no slice switching" on the
+      basis that `set_in_focus` and `rx_channel_enable` are silently ignored.
+      **Not tested for writability** — `active_slice:0,B;` was deliberately not
+      sent. If it writes, it is a far cleaner route than the Studio Hotkey path
+      below, and Slice Cycle could finally move AetherSDR's own focus instead of
+      only retargeting which receiver the plugin addresses.
 - [ ] **Visible slice switching** is possible via a different route: AetherSDR's
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR

@@ -61,6 +61,7 @@ upstream-original/           pristine upstream v0.1.5, for diffing patches
 patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
 tci-probe.sh                 query TCI safely (one arg = read, two = confirmed write)
+tci-watch.sh                 which verbs BROADCAST vs only answer a query (read-only)
 backups/                     what was overwritten, timestamped (created on first run)
 INSTALL.md                   installing on another Mac
 make-bundle.sh               build the self-contained install zip
@@ -96,6 +97,19 @@ ambiguity cannot bite:
 ```
 
 See HANDOVER.md "Known gotchas" for the full story.
+
+**Check whether a verb broadcasts before you mirror it.** AetherSDR announces
+some state changes and stays silent on others, and guessing wrong yields a
+control that looks right and is subtly wrong — it has cost three patches now
+(7, 9, 10). `./tci-watch.sh` settles it without sending anything at all:
+
+```bash
+./tci-watch.sh                      # 60 s, every verb, summary
+./tci-watch.sh 90 split_enable vfo  # just these, every change timestamped
+```
+
+Exercise the control while it runs — a verb nobody touched cannot broadcast, so
+"burst only" is not proof of query-only.
 
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.
