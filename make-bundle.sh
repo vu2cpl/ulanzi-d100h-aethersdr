@@ -6,6 +6,7 @@
 #     Ulanzi Studio ships its own Node runtime)
 #   - the D100H profile from profile/
 #   - INSTALL.md
+#   - tci-probe.sh
 #
 # The plugin is assembled from the INSTALLED copy rather than from patched/,
 # because patched/ holds only the four files we modify — the rest of the plugin
@@ -46,6 +47,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 rsync -a --exclude '.DS_Store' "$PLUGIN" "$OUT/"
 rsync -a --exclude '.DS_Store' "$HERE/profile/"*.ulanziProfile "$OUT/"
 cp "$HERE/INSTALL.md" "$OUT/"
+cp "$HERE/tci-probe.sh" "$OUT/"          # safe TCI probe — see INSTALL.md troubleshooting
 
 ZIP="$OUT.zip"; rm -f "$ZIP"
 ( cd "$(dirname "$OUT")" && zip -qr "$(basename "$ZIP")" "$(basename "$OUT")" -x "*.DS_Store" )

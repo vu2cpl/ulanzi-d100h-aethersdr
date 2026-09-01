@@ -121,6 +121,13 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    parameter count is fixed per verb, not varying by context. Found 2026-09-01
    while tracing the TX-audio outage below; **not yet pressed on the radio.**
 
+9. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
+   (one argument reads, a value writes and confirms first) so the `verb:0;` mistake
+   cannot recur, and shipped it in the install bundle. `INSTALL.md`'s key-layout
+   table was wrong — it listed a **MOX Toggle** the profile does not contain and
+   omitted **TUNE / ATU**; corrected against the profile manifest. Note the manifest
+   does not record which key group is physically left vs right.
+
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
 dial dispatch (the encoder handlers were hardcoded and ignored whatever you assigned
 to the knob); `onKeyUp` (absent entirely, so momentary anything was impossible);

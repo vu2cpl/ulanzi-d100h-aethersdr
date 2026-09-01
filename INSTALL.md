@@ -50,6 +50,19 @@ If your AetherSDR uses a different port, set each action's **AetherSDR TCI URL**
 field in Studio, or edit `DEFAULT_TCI_URL` at the top of
 `Plugins/com.g0jkn.aethersdr.ulanziPlugin/plugin/app.js`.
 
+Once the plugin is installed, `./tci-probe.sh` (shipped in this bundle) dumps
+AetherSDR's full TCI state, which confirms the server is reachable and answering:
+
+```bash
+./tci-probe.sh                 # state dump
+./tci-probe.sh tx_gain         # query one verb — one argument always reads
+```
+
+**⚠️ Never probe a TCI verb by hand as `verb:0;`.** For verbs that take no receiver
+index — `tx_gain`, `mic_level`, `volume` — that is not a query, it **sets the value
+to zero**. `tx_gain:0;` leaves the radio keying with no audio out, and it survives
+restarts. Use the script, where reading and writing are separate invocations.
+
 ## 4. Start Ulanzi Studio
 
 The profile appears as **"AetherSDR D100H controler"**. Select it for the D100H.
@@ -58,10 +71,16 @@ Layout as shipped (7 buttons + knob):
 
 | Position | Action |
 |----------|--------|
-| Knob | VFO Tune (press = configurable) |
-| Top ×3 | PTT (Momentary) · Split Enable · MOX Toggle |
-| Left ×2 | Mode Cycle · Mute |
-| Right ×2 | Band Up · Band Down |
+| Knob | VFO Tune (1 kHz step, ×10 coarse, press = VFO A/B swap) |
+| Group of 3 | Split Enable · Band Up · Band Down |
+| Group of 2 | PTT (Momentary) · Mode Cycle |
+| Group of 2 | Mute · TUNE / ATU |
+
+Taken from the profile manifest, which groups the keys as `1_0…1_2` (the row of
+three) and `0_0…0_1` / `2_0…2_1` (the pairs). Which pair lands on the left and
+which on the right is not recorded in the manifest — check the dial and swap the
+two rows above if they read backwards. There is **no MOX Toggle** in the shipped
+profile; an earlier revision of this table listed one and omitted TUNE.
 
 ## 5. Verify
 
