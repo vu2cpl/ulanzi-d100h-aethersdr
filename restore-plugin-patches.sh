@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #   A plugin update from upstream overwrites the plugin directory and wipes
-#   node_modules.  Every one of the eight fixes below then reverts, and the
+#   node_modules.  Every one of the nine fixes below then reverts, and the
 #   symptom is a controller that looks completely dead — the profile still
 #   looks correct, the buttons just do nothing.  Run this after any update.
 #
@@ -19,6 +19,9 @@
 #   8. AF/Mic Gain sent volume:0,<v> and mic_level:0,<v> to verbs that take no
 #      receiver index — the leading 0 was read as the value, so every press
 #      wrote 0.  Now volume:<db> and mic_level:<percent>
+#   9. Dial tuned the RX VFO under split — cmdSetFreq() hardcoded channel 0.
+#      Split now steers the knob to VFO B (vfo:<rx>,1), and split_enable is
+#      parsed with the sliceIndex filter the other verbs already had
 #
 # Usage:  ./restore-plugin-patches.sh [--check]
 #         --check  report status only, change nothing

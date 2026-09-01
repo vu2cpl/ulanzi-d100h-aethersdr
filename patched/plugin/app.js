@@ -171,8 +171,18 @@ function parseTci(msg) {
         }
         break;
       case 'rit_enable':   if (p.length >= 2) radio.ritOn        = p[1] === 'true';      break;
-      // Accept both wire shapes: `split_enable:0,true` and a bare `mute:true`.
-      case 'split_enable': radio.split  = (p.length >= 2 ? p[1] : p[0]) === 'true';      break;
+      // Accept both wire shapes: `split_enable:0,true` and a bare `split_enable:true`.
+      // The indexed form MUST be filtered on sliceIndex the way vfo/mute/modulation
+      // are: the connect burst reports every receiver, so `split_enable:1,true`
+      // arrives right after `split_enable:0,false` and an unfiltered assignment
+      // left the mirror holding receiver 1's split state for receiver 0.
+      case 'split_enable':
+        if (p.length >= 2) {
+          if (parseInt(p[0]) === radio.sliceIndex) radio.split = p[1] === 'true';
+        } else {
+          radio.split = p[0] === 'true';
+        }
+        break;
       case 'mute':
         if (p.length >= 2 && parseInt(p[0]) === radio.sliceIndex) radio.muted = p[1] === 'true';
         break;
@@ -240,6 +250,31 @@ function cmdMuteToggle()      { return `mute:${radio.sliceIndex},${!radio.muted}
 function cmdPttOn()           { return `trx:0,true;`; }
 function cmdPttOff()          { return `trx:0,false;`; }
 function cmdSetFreq(hz)       { return `vfo:${radio.sliceIndex},0,${hz};`; }
+
+// Which VFO the DIAL moves.  With split enabled the operator is setting the
+// TRANSMIT frequency — "call up 1-2 on 14002" means move TX, not RX — so the
+// knob has to drive VFO B (channel 1).  Tuning channel 0 under split walks the
+// receiver off the DX and leaves TX where it was, which is the opposite of
+// what split-then-tune means.
+//
+// AetherSDR mirrors the split TX frequency at BOTH `vfo:<rx>,1` and
+// `vfo:<rx+1>,0` (verified 2026-09-01 by watching the broadcast stream: every
+// VFO-B move emitted the pair, while `vfo:0,0` stayed pinned).  We write
+// channel 1, matching doVfoSwap().
+//
+// Only the dial uses these.  changeBand() deliberately still moves channel 0:
+// a band change is an RX move, and dragging TX along would be a surprise.
+function tuneChannel() { return radio.split ? 1 : 0; }
+
+function tuneBaseHz() {
+  if (!radio.split) return radio.frequency;
+  // vfoB is seeded by the connect burst and re-broadcast whenever split is
+  // enabled, so null here means channel 1 has genuinely never been reported.
+  // Step from the RX frequency rather than from 0.
+  return radio.vfoB === null ? radio.frequency : radio.vfoB;
+}
+
+function cmdTuneTo(hz)       { return `vfo:${radio.sliceIndex},${tuneChannel()},${hz};`; }
 function cmdSetMode(mode)     { return `modulation:${radio.sliceIndex},${mode};`; }
 
 function cmdModeNext() {
@@ -496,7 +531,7 @@ function dialRotate(jsn, direction, coarse) {
   if (id !== null && id !== `${PLUGIN_UUID}.vfo`) return;
   const hz = intSetting(jsn, 'step_hz', TX_STEP_HZ)
            * (coarse ? intSetting(jsn, 'coarse_mult', COARSE_MULT) : 1);
-  tciSend(cmdSetFreq(radio.frequency + direction * hz));
+  tciSend(cmdTuneTo(tuneBaseHz() + direction * hz));
 }
 
 $UD.onDialRotateRight((jsn)     => dialRotate(jsn, +1, false));

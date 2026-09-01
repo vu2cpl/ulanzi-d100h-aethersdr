@@ -32,6 +32,14 @@ of that plugin; the plugin itself is theirs.
 
 ### Current profile layout
 
+Read back from the profile manifest 2026-09-01 — there is **no MOX Toggle** bound.
+An earlier revision of this table listed one and omitted TUNE / ATU; INSTALL.md was
+corrected first and this table was missed. Regenerate rather than hand-edit:
+
+```bash
+python3 -c "import json;d=json.load(open('profile/3e14ea8f-bb5d-408e-93ae-1640754bffd3.ulanziProfile/Profiles/c5e3083c-74a0-4ad8-b8b1-86ce97cdb19c/manifest.json'));[print(k,a['Name']) for c in d['Controllers'] for k,a in sorted(c['Actions'].items())]"
+```
+
 | Key | Action |
 |-----|--------|
 | Encoder `0_2` | VFO Tune (knob) |
@@ -40,8 +48,8 @@ of that plugin; the plugin itself is theirs.
 | `1_0` | Split Enable |
 | `1_1` | Band Up |
 | `1_2` | Band Down |
-| `2_0` | MOX Toggle |
-| `2_1` | Mute |
+| `2_0` | Mute |
+| `2_1` | TUNE / ATU |
 
 ### Do NOT use AetherSDR's built-in "Ulanzi Dial" HID path
 
@@ -60,7 +68,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Eight local patches to the plugin. **A plugin update reverts every one of them**,
+Nine local patches to the plugin. **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -121,12 +129,42 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    parameter count is fixed per verb, not varying by context. Found 2026-09-01
    while tracing the TX-audio outage below; **not yet pressed on the radio.**
 
-9. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
+9. **The dial tuned the RX VFO under split.** `cmdSetFreq()` hardcoded the VFO
+   channel — `vfo:<rx>,0,<hz>` — and `dialRotate()` stepped from `radio.frequency`,
+   which the parser only fills from channel 0. So enabling split and spinning the
+   knob walked the *receiver* off frequency and left TX exactly where it was: the
+   opposite of what split-then-tune means. Reported from the operating desk
+   2026-09-01 ("14002 RX, call up 1-2, dial moves RX not TX").
+   The dial now targets channel 1 whenever `radio.split` is set, stepping from
+   `radio.vfoB`; `changeBand()` deliberately still moves channel 0, since a band
+   change is an RX move and dragging TX along would surprise.
+   Probed live before coding, and two assumptions did not survive it:
+   - AetherSDR **does broadcast** `split_enable` changes (unlike `tune:`, patch 7),
+     so the mirror tracks without polling — 4 toggles seen in a 90 s capture.
+   - The split TX frequency is mirrored at **both** `vfo:<rx>,1` and `vfo:<rx+1>,0`;
+     every VFO-B move emitted the pair while `vfo:0,0` stayed pinned.
+   Also fixed alongside: `split_enable` was parsed **without** the `sliceIndex`
+   filter that `vfo`/`mute`/`modulation` all have. The connect burst reports every
+   receiver, so `split_enable:1,true` landed immediately after `split_enable:0,false`
+   and the mirror ended up holding receiver 1's split state for receiver 0.
+   **Verified on the dial 2026-09-01.** Split on, knob spun: TX-B walked
+   18104100 → 18107500 while `vfo:0,0` stayed pinned at 18104000 the whole time;
+   split off, the knob moved RX again. Note AetherSDR resets VFO B to the RX
+   frequency each time split is enabled, so the TX offset is set after enabling,
+   not before.
+
+10. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
    (one argument reads, a value writes and confirms first) so the `verb:0;` mistake
    cannot recur, and shipped it in the install bundle. `INSTALL.md`'s key-layout
    table was wrong — it listed a **MOX Toggle** the profile does not contain and
    omitted **TUNE / ATU**; corrected against the profile manifest. Note the manifest
    does not record which key group is physically left vs right.
+    Fixed again 2026-09-01: `tci-probe.sh`'s no-verb state dump exited the moment
+    AetherSDR sent `ready;`, which lands ~8 lines into the connect burst — so it
+    silently truncated the dump and hid `split_enable`, `mute`, `rit`/`xit`, `agc`
+    and the entire second receiver. Absent-from-the-dump read as absent-from-TCI
+    and produced a wrong diagnosis during the patch-9 probe. The dump now runs to
+    its timeout: 120 state lines instead of 8.
 
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
 dial dispatch (the encoder handlers were hardcoded and ignored whatever you assigned
@@ -217,6 +255,19 @@ plugin files. The restore script refuses to run while it is up.
   unanswered. Not in the shortcut editor either. The MQTT antenna topics are
   **display names only** ("AetherSDR still sends canonical radio antenna tokens").
   ANT / RX_A is UI-only.
+- **Which verbs BROADCAST vs only answer a query** — the distinction that produced
+  patches 7 and 9, so check it before mirroring any new verb in `radio`:
+  - `split_enable` **broadcasts.** 4 GUI toggles seen in a 90 s capture, 2026-09-01.
+    A parser mirror is enough; no polling needed.
+  - `vfo` **broadcasts**, both channels, and the split TX frequency appears twice —
+    at `vfo:<rx>,1` *and* `vfo:<rx+1>,0`, always the same value. `vfo:0,0` stays
+    pinned while VFO B moves.
+  - `tune` does **not** broadcast — query-only, which is why patch 7 is query-then-act.
+  - `drive` is emitted at init only; later changes are silent (hence the optimistic
+    local mirror in the gain helpers).
+  The connect burst is the cheapest place to check: it carries the initial value of
+  every verb AE broadcasts. Read it with `./tci-probe.sh` — but only since the
+  `ready;` truncation was fixed, or you will see 8 lines of a 120-line burst.
 
 ---
 
@@ -224,6 +275,23 @@ plugin files. The restore script refuses to run while it is up.
 
 - [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
       (TUNE query-then-act was tested and works — 2026-09-01.)
+- [ ] **The dial ignores the profile's `step_hz` — it steps 100 Hz, not 1 kHz.**
+      Found 2026-09-01 while verifying patch 9: the profile saves
+      `{"step_hz": "1000", "coarse_mult": "10", "press_action": "vfo_swap"}` on the
+      VFO Tune encoder, but the observed step was exactly `TX_STEP_HZ` (100), the
+      hardcoded fallback in `intSetting()`. So the saved settings are not reaching
+      the plugin for the encoder. **Pre-dates patch 9** — `dialRotate()` made the
+      same `intSetting()` call before. Prime suspect: `settingsFor()` looks up
+      `ACTION_CACHES[jsn.context]`, and dial-rotate events may not carry `context`;
+      dispatch survives only because `actionIdFor()` falls back to `jsn.uuid`.
+      Confirm by setting `DEBUG = true` and logging `jsn.context` in `dialRotate()`.
+      This is the same class of fault as patch 3, which was thought to have closed it.
+- [x] **Patch 9 verified on the dial 2026-09-01** — TX-B moved through 35 kHz while
+      `vfo:0,0` stayed pinned; knob returns to RX when split is off.
+      Still unhandled: after a **Slice Cycle**, `radio.vfoB` still holds the
+      previous slice's channel 1 — `doSliceCycle()` re-queries `vfo:<n>,0` and
+      `modulation` but not channel 1 or `split_enable`. Harmless in the shipped
+      profile, which has no Slice Cycle key bound.
 - [x] **Patch 8 verified on the radio 2026-09-01** — but not from the D100H, because
       AF Gain and Mic Gain are not bound in the operator profile (all 7 keys and the
       knob are taken: PTT, Mode Cycle, Split, Band Up/Down, Mute, TUNE, VFO). That is
@@ -236,9 +304,12 @@ plugin files. The restore script refuses to run while it is up.
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session
       through 31 Aug ran at `gain=1` — i.e. `tx_gain:100`. Read it with
       `./tci-probe.sh tx_gain`, set it with `./tci-probe.sh tx_gain 100`.
-- [ ] `SLICE_COUNT` is hardcoded to **2**. AetherSDR reports `trx_count:1` yet answers
-      on receiver index 1 with independent state (3.553 MHz CW), so the real slice
-      count can't be inferred from TCI. Set it to match actual operating practice.
+- [ ] `SLICE_COUNT` is hardcoded to **2**. Earlier note said AetherSDR reports
+      `trx_count:1`; the untruncated burst on 2026-09-01 in fact reports
+      **`trx_count:2; channels_count:2;`**, and receiver 1 carries fully independent
+      state (its own `vfo`, `modulation`, `split_enable`, `agc_mode`). So 2 is right
+      for this AE build — but it is still hardcoded rather than read from
+      `trx_count`, which is what should happen.
 - [ ] **Visible slice switching** is possible via a different route: AetherSDR's
       shortcut editor has a "next/previous slice" action, and Studio ships a built-in
       **Hotkey** action (`com.ulanzi.ulanzideck.system.hotkey`). Needs AetherSDR
@@ -255,7 +326,9 @@ plugin files. The restore script refuses to run while it is up.
       because the plugin was installed by copying the folder rather than following
       that step. Watch the issue for a reply.
 - [ ] `vfo_swap` on knob press is guarded — it does nothing unless AetherSDR has
-      reported a VFO B for the slice. Silent by design; may look broken.
+      reported a VFO B for the slice. Silent by design; may look broken. In practice
+      the guard should never fire: the connect burst carries `vfo:<rx>,1` for every
+      receiver (confirmed 2026-09-01, once the probe stopped truncating at `ready;`).
 
 ---
 
@@ -277,7 +350,7 @@ Attach it to a GitHub release if a fixed artifact is ever needed.
 ## Diffing against upstream
 
 `upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
-eight patches can be inspected against their true baseline and bug reports can
+nine patches can be inspected against their true baseline and bug reports can
 cite original line numbers:
 
 ```bash

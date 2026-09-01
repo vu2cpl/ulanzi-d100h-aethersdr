@@ -3,7 +3,7 @@
 Self-contained. `node_modules` is bundled, and Ulanzi Studio ships its own Node
 runtime, so **no `npm` and no system Node are needed**.
 
-This is Nigel Fenton (G0JKN)'s *AetherSDR Controller* plugin with eight local
+This is Nigel Fenton (G0JKN)'s *AetherSDR Controller* plugin with nine local
 patches applied — the stock plugin does not work against AetherSDR as shipped.
 
 ## Before you start
@@ -121,7 +121,7 @@ plugin uses TCI instead.
 
 ## Keeping it working
 
-A plugin update from upstream reverts all eight patches at once and the
+A plugin update from upstream reverts all nine patches at once and the
 controller goes dead while the profile still looks fine. The patches, their
 reasoning and a restore script live in the private repo
 `vu2cpl/ulanzi-d100h-aethersdr`.

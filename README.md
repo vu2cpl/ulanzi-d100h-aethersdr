@@ -11,7 +11,7 @@ script to re-apply them after a plugin update.
 
 ## Why this exists
 
-A plugin update overwrites the plugin directory and wipes `node_modules`. All eight
+A plugin update overwrites the plugin directory and wipes `node_modules`. All nine
 patches below revert, and the failure mode is a controller that looks completely
 dead while the Studio profile still looks perfect.
 
@@ -37,8 +37,9 @@ refuses to run while it is up. Restart Studio afterwards.
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
 | 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
 | 8 | AF Gain / Mic Gain sent `volume:0,<v>;` and `mic_level:0,<v>;` to verbs that take **no** receiver index — AE read the index as the value, so every press wrote **0** |
+| 9 | Dial tuned the RX VFO under split — `cmdSetFreq()` hardcoded channel 0, so "split, then spin" moved RX and left TX put. Split now steers the knob to VFO B (`vfo:<rx>,1`) |
 
-Patches 1–4, 7 and 8 are genuine upstream bugs worth reporting to G0JKN.
+Patches 1–4 and 7–9 are genuine upstream bugs worth reporting to G0JKN.
 
 ## Assignable actions
 

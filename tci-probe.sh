@@ -76,7 +76,12 @@ ws.on("open", () => {
 
 ws.on("message", (d) => {
   const s = d.toString().trim();
-  if (s === "ready;") { ready = true; if (!verb) process.exit(0); return; }
+  // Do NOT exit on `ready;`.  AetherSDR sends it partway through the connect
+  // burst — split_enable, mute, rit/xit, agc and the whole second receiver
+  // all arrive AFTER it.  Exiting here truncated the state dump to its first
+  // ~8 lines and made absent-from-the-dump look like absent-from-TCI
+  // (2026-09-01: it hid split_enable and cost a wrong diagnosis).
+  if (s === "ready;") { ready = true; return; }
   if (NOISE.test(s)) return;
   // With a verb, show only its replies; without one, show the whole burst.
   if (verb && !s.startsWith(verb)) return;
@@ -84,5 +89,7 @@ ws.on("message", (d) => {
 });
 
 ws.on("error", (e) => { console.error(`error: ${e.message}`); process.exit(1); });
+// The no-verb dump now runs to this timeout instead of stopping at `ready;`,
+// so it needs long enough for the full burst (both receivers).
 setTimeout(() => process.exit(0), verb ? (value ? 2200 : 1800) : 4000);
 '
