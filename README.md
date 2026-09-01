@@ -42,7 +42,7 @@ Patches 1–4, 7 and 8 are genuine upstream bugs worth reporting to G0JKN.
 
 ## Assignable actions
 
-[TCI-ACTIONS.md](TCI-ACTIONS.md) lists all 50, probed live against the radio:
+[TCI-ACTIONS.md](TCI-ACTIONS.md) lists all 51, probed live against the radio:
 what the plugin already does, what can be added, and what AetherSDR simply
 does not expose (antenna, slice focus, CW keyer, VFO lock).
 
@@ -53,11 +53,12 @@ profile/                     the D100H layout (7 buttons + knob)
 upstream-original/           pristine upstream v0.1.5, for diffing patches
 patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
+tci-probe.sh                 query TCI safely (one arg = read, two = confirmed write)
 backups/                     what was overwritten, timestamped (created on first run)
 INSTALL.md                   installing on another Mac
 make-bundle.sh               build the self-contained install zip
 HANDOVER.md                  full story, gotchas, open items
-TCI-ACTIONS.md               all 50 assignable actions, probe-verified
+TCI-ACTIONS.md               all 51 assignable actions, probe-verified
 ```
 
 ## Installing on another Mac
@@ -73,12 +74,21 @@ installed plugin has drifted from `patched/`.
 
 ## Gotchas
 
-**⚠️ Probe with the bare `verb;` form — never `verb:0;`.** TCI verbs are either
-receiver-indexed (`drive:<rx>,<value>`, where `drive:0;` is a safe query) or not
-(`volume:<value>`, `mic_level:<value>`, `tx_gain:<value>`, where `verb:0;` **writes
-zero**). A verb sweep in the `verb:0;` form silenced this station's TX audio for two
-days on 2026-09-01 by zeroing AetherSDR's TCI TX gain. The bare `verb;` form is a
-query for both shapes and can never write. See HANDOVER.md "Known gotchas".
+**⚠️ Probe with `./tci-probe.sh`, never a hand-rolled `verb:0;`.** TCI verbs are
+either receiver-indexed (`drive:<rx>,<value>`, where `drive:0;` is a safe query) or
+not (`volume:<value>`, `mic_level:<value>`, `tx_gain:<value>`, where `verb:0;`
+**writes zero**). A verb sweep in the `verb:0;` form silenced this station's TX audio
+for two days on 2026-09-01 by zeroing AetherSDR's TCI TX gain — a keyed transmitter
+radiating nothing. The script makes reads and writes separate invocations so the
+ambiguity cannot bite:
+
+```bash
+./tci-probe.sh                 # full state dump
+./tci-probe.sh tx_gain         # query — one argument always reads
+./tci-probe.sh tx_gain 100     # write — confirms before sending
+```
+
+See HANDOVER.md "Known gotchas" for the full story.
 
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.

@@ -81,20 +81,35 @@ list to implement wholesale. More capacity comes from extra Studio pages.
 | 48 | RX Record Toggle | `rx_record` | `rx_record:0,false` |
 | 49 | RX Playback Toggle | `rx_play` | `rx_play:0,false` |
 | 50 | RX Channel Enable | `rx_channel_enable` | `rx_channel_enable:0,true` |
+| 51 | TCI TX Gain 🎛️ | `tx_gain` | `tx_gain:<value>` ⚠️ **not indexed** |
 
 Informational only, not useful as buttons: `tx_frequency` (derived), `dds`.
+
+**`tx_gain` is the master gain on TX audio arriving over TCI** — 0–100, mapping
+directly to the multiplier AetherSDR logs per transmission
+(`TCI TX summary ... gain=`): `tx_gain:100` → `gain=1`, `tx_gain:0` → `gain=0`,
+i.e. a keyed transmitter radiating silence. It is the single most destructive verb
+in this table. Read it with `./tci-probe.sh tx_gain` before touching anything on
+the TX path.
 
 ## C. NOT possible — probed and silent
 
 `vfo_lock`, `mon_enable`, `mon_volume`, `cw_keyer_speed`,
 `cw_macros_speed`, `cw_macros_delay`, `spot`, `keyer`, `iq_start`.
 
-**`tx_gain` was wrongly listed here.** It answered nothing when probed, which
-this file read as "unimplemented" — but a *set* draws no reply either. The probe
-`tx_gain:0;` set AetherSDR's TCI TX gain to **0**, persisted across restarts, and
-silenced the station's TX audio for two days (2026-09-01). Silence on a probe
-means "not a query", not "not supported". Treat every unanswered `verb:0;` as a
-write that may have landed.
+These were probed as `verb:0;` and are worth re-checking with the bare `verb;`
+form before being trusted as unsupported — see the `tx_gain` correction below.
+
+**`tx_gain` was wrongly listed here, twice.** The original sweep probed it as
+`tx_gain:0;`, got no answer, and filed it unimplemented — but that string was a
+**set**, and a set draws no reply. It put AetherSDR's TCI TX gain to **0**, which
+persisted across restarts and silenced the station for two days (2026-09-01).
+Probed properly as `tx_gain;` it answers immediately (`tx_gain:50;`), so it is
+fully implemented and now listed as action 51 above.
+
+The lesson generalises: **silence on a probe means "not a query", not "not
+supported"** — and every unanswered `verb:0;` should be treated as a write that
+may have landed.
 
 Also unavailable, for reasons documented in HANDOVER.md:
 

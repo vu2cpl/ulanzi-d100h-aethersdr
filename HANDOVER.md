@@ -169,6 +169,19 @@ Corollary: a verb that stays silent is not necessarily unimplemented — a *set*
 no reply either. `tx_gain:0;` was logged as received, answered nothing, and changed
 the radio anyway. Silence means "not a query", not "not supported".
 
+**Confirmed 2026-09-01:** probed properly as `tx_gain;` it answers `tx_gain:50;`.
+It is a fully implemented, non-indexed, 0–100 verb that maps straight to the TX
+audio multiplier AE logs per transmission — `tx_gain:100` → `gain=1`,
+`tx_gain:0` → `gain=0`, a keyed transmitter radiating silence. This closes the
+case: the outage was not inferred from timing, the verb is real and does exactly
+what the logs showed.
+
+**Use `./tci-probe.sh` rather than hand-rolled one-liners.** One argument is always
+a query (`./tci-probe.sh tx_gain`); a value makes it a write and it confirms first
+(`./tci-probe.sh tx_gain 100`). No arguments dumps the full connect burst. It
+borrows `ws` from the installed plugin, since `ws` is not installed globally on
+this Mac.
+
 **Probe a TCI verb before writing code against it.** Every "button not working"
 report in this project turned out to be a malformed TCI command, never the button —
 AetherSDR silently discards malformed commands, which is indistinguishable from a
@@ -212,9 +225,10 @@ plugin files. The restore script refuses to run while it is up.
       `mic_level;` → 79, `mic_level:40;` → reads back 40, restored to 79. The
       single-param form sets the value it names; the old `mic_level:0,40;` would have
       set 0. Bind the actions to a second Studio page if you want them on the dial.
-- [ ] **Restore AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
-      it was found and set to 0.5 on 2026-09-01. Confirm 0.5 is the value you actually
-      want — the working sessions through 31 Aug all logged `gain=1`.
+- [ ] **Decide AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
+      it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session
+      through 31 Aug ran at `gain=1` — i.e. `tx_gain:100`. Read it with
+      `./tci-probe.sh tx_gain`, set it with `./tci-probe.sh tx_gain 100`.
 - [ ] `SLICE_COUNT` is hardcoded to **2**. AetherSDR reports `trx_count:1` yet answers
       on receiver index 1 with independent state (3.553 MHz CW), so the real slice
       count can't be inferred from TCI. Set it to match actual operating practice.
