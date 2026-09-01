@@ -110,6 +110,17 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    button to every-other-press. **Verified working on the radio 2026-09-01.**
    (`rit_enable:` and `tune:` command formats were both probed and are correct.)
 
+8. **AF Gain / Mic Gain wrote zero on every press.** `cmdAfGain` sent
+   `volume:0,<v>;` and `cmdMicGain` sent `mic_level:0,<v>;`. Both verbs take **no**
+   receiver index (`volume:<value>`, `mic_level:<value>`), so AetherSDR read our
+   leading `0` as the value — every press set the level to **0**, whichever
+   direction it was pressed. Harmless only for as long as the plugin pointed at
+   port 40001 and nothing was listening; patch 1 made these presses live.
+   Now sent as `volume:<db>;` (percent→dB per #3502) and `mic_level:<percent>;`.
+   The parser's "asymmetric emit format" comment was also wrong and is corrected:
+   parameter count is fixed per verb, not varying by context. Found 2026-09-01
+   while tracing the TX-audio outage below; **not yet pressed on the radio.**
+
 Also added: **Split Enable**, **Mute**, and **PTT (Momentary)** actions; per-action
 dial dispatch (the encoder handlers were hardcoded and ignored whatever you assigned
 to the knob); `onKeyUp` (absent entirely, so momentary anything was impossible);
@@ -120,15 +131,48 @@ are now actually read.
 
 ## Known gotchas
 
-**Probe a TCI verb before writing code against it.** Every "button not working"
-report in this project turned out to be a malformed TCI command, never the button.
-AetherSDR silently discards malformed commands. Open a websocket to `:50001`, send
-`verb:0;` as a *query*, and it replies with the canonical shape:
+**⚠️ `verb:0;` IS NOT A SAFE QUERY. It took the station off the air.**
+
+TCI verbs come in two shapes, and the probe form that is a harmless query for one
+is a **destructive write of zero** for the other:
+
+| Shape | Example | `verb:0;` means |
+|---|---|---|
+| receiver-indexed | `drive:<rx>,<value>` | query receiver 0 — safe |
+| not indexed | `volume:<value>`, `mic_level:<value>`, `tx_gain:<value>` | **set the value to 0** |
+
+On **2026-09-01 at 00:03:43** a sweep of every known verb in the `verb:0;` form
+(the one this section used to recommend) sent `tx_gain:0;`, `mic_level:0;` and
+`volume:0;`. AetherSDR's TCI **TX gain went to 0 and stayed there across restarts**.
+The radio then keyed normally on FT8 and radiated nothing — MSHV's audio was being
+multiplied by zero. From AE's own log:
 
 ```
--> mute:0;      <- mute:0,false        (so: mute:<rx>,<bool>)
--> if:0;        <- if:0,0,0            (so: if is IF-OFFSET, not slice select)
+28 Aug (working):  TX_CHRONO ... gain=1   peak=0.905308  rms=0.606374
+01 Sep (silent):   TX_CHRONO ... gain=0   peak=0         rms=0
 ```
+
+215 transmissions at `gain=1` before the sweep, 50 at `gain=0` after. Two days were
+lost chasing the plugin, the port change and MSHV before the log gave it up.
+
+**How to tell the shapes apart, safely:** the bare `verb;` form (no colon, no value)
+is a query for *both* shapes and can never write. Use it first; only once you know
+a verb is receiver-indexed is `verb:0;` safe.
+
+```
+-> mute;        <- mute:0,false        receiver-indexed (so mute:<rx>,<bool>)
+-> mic_level;   <- mic_level:0;        NOT indexed — `mic_level:0;` would WRITE 0
+-> if:0;        <- if:0,0,0            if is IF-OFFSET, not slice select
+```
+
+Corollary: a verb that stays silent is not necessarily unimplemented — a *set* draws
+no reply either. `tx_gain:0;` was logged as received, answered nothing, and changed
+the radio anyway. Silence means "not a query", not "not supported".
+
+**Probe a TCI verb before writing code against it.** Every "button not working"
+report in this project turned out to be a malformed TCI command, never the button —
+AetherSDR silently discards malformed commands, which is indistinguishable from a
+dead button. Probe with the bare `verb;` form per the warning above.
 
 **Debug logging.** `plugin/app.js` has `const DEBUG = false` gating a `dbg()` file
 log to `/tmp/aethersdr-ulanzi-debug.log`. Set it `true` to see whether a press even
@@ -158,8 +202,14 @@ plugin files. The restore script refuses to run while it is up.
 
 ## Open items
 
-- [ ] **Untested by operator:** band stacking, and Slice Cycle's receiver retargeting.
+- [ ] **Untested by operator:** band stacking, Slice Cycle's receiver retargeting,
+      and the patch-8 AF Gain / Mic Gain fix (`volume:<db>;` / `mic_level:<percent>;`).
+      Press each once and confirm on the wire before trusting them — these two
+      actions wrote zeros for their whole life until 2026-09-01.
       (TUNE query-then-act was tested and works — 2026-09-01.)
+- [ ] **Restore AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
+      it was found and set to 0.5 on 2026-09-01. Confirm 0.5 is the value you actually
+      want — the working sessions through 31 Aug all logged `gain=1`.
 - [ ] `SLICE_COUNT` is hardcoded to **2**. AetherSDR reports `trx_count:1` yet answers
       on receiver index 1 with independent state (3.553 MHz CW), so the real slice
       count can't be inferred from TCI. Set it to match actual operating practice.

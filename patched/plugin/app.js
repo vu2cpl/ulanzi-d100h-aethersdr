@@ -179,26 +179,23 @@ function parseTci(msg) {
       // Gain / level trackers — keep local mirror in sync so ±5 steps are
       // calculated against the radio's actual current value, not a stale guess.
       //
-      // AetherSDR has **asymmetric** emit formats for these verbs:
-      //   - Init burst (TCI connect)  : `verb:<trx>,<value>;`  — two params
-      //   - Steady-state value change : `verb:<value>;`        — single param
-      //
-      // Verified live 2026-05-27 via TCI Monitor: pressing AF Gain ▲ sends
-      // `volume:0,55;` and AE responds with `volume:55;` (no trx prefix).
-      // So our parser must accept BOTH lengths — read p[1] when trx-prefixed,
-      // otherwise p[0].  Earlier versions only handled the two-param case
-      // and dropped every steady-state update, freezing the local mirror at
-      // the init-burst snapshot → ±5 steps bounced ±5 around that frozen
-      // value forever (e.g. 45 ↔ 55 around an init volume of 50).
-      // #3502: AE now echoes VOLUME in dB (−60..0). A positive value can only
+      // Parameter count is per-verb and does NOT vary by context.  Re-checked
+      // against AE's own TCI log 2026-09-01 (init burst, query replies and
+      // broadcasts all agree):
+      //   - `drive:<rx>,<value>;`   — receiver-indexed, TWO params
+      //   - `volume:<value>;`       — NOT indexed, ONE param
+      //   - `mic_level:<value>;`    — NOT indexed, ONE param
+      // The earlier "asymmetric emit format" note here was wrong; see the
+      // single-param hazard warning above cmdAfGain().
+      // #3502: AE echoes VOLUME in dB (−60..0). A positive value can only
       // come from a legacy percent-scale AE, so ≥1 = percent, ≤0 = dB.
       case 'volume': {
-        const raw = parseInt(p.length >= 2 ? p[1] : p[0]);
+        const raw = parseInt(p[0]);
         radio.volume = raw >= 1 ? Math.min(raw, 100) : dbToPercent(raw);
         break;
       }
       case 'drive':        radio.rfPower  = parseInt(p.length >= 2 ? p[1] : p[0]); break;
-      case 'mic_level':    radio.micLevel = parseInt(p.length >= 2 ? p[1] : p[0]); break;
+      case 'mic_level':    radio.micLevel = parseInt(p[0]); break;
     }
   }
 }
@@ -296,7 +293,7 @@ function cmdVfoStep(direction)       { return cmdSetFreq(radio.frequency + direc
 function cmdVfoStepCoarse(direction) { return cmdSetFreq(radio.frequency + direction * TX_STEP_HZ * COARSE_MULT); }
 
 // Gain ±5 helpers — clamp to 0–100 so we don't blow past the radio's range.
-// Format `verb:<trx>,<value>;` matches the TCI spec and AE accepts it.
+// The wire format is PER-VERB, not uniform — see the hazard block below.
 //
 // Optimistic local-mirror update: AetherSDR only emits `drive:` over TCI
 // at init-burst time — value changes after that are silent.  Verified via
@@ -312,32 +309,55 @@ function cmdVfoStepCoarse(direction) { return cmdSetFreq(radio.frequency + direc
 // optimistic update for it as well keeps the three actions consistent and
 // is harmless — the subsequent parser echo just confirms the same value.
 //
-// `mic_level` is best-effort — not in the published TCI spec; AE may
-// silently ignore.
+// `mic_level` is best-effort — not in the published TCI spec, but AE does
+// implement it (it appears in AE's TCI init burst as `mic_level:<value>;`).
 const clamp01_100 = (v) => Math.max(0, Math.min(100, v));
+
+// ─────────────────────────────────────────────────────────────────────────
+// SINGLE-PARAMETER VERB HAZARD — read before touching anything below.
+//
+// TCI verbs split into two shapes, and getting it wrong is DESTRUCTIVE, not
+// merely ineffective:
+//
+//   receiver-indexed : `drive:<rx>,<value>;`   — `drive:0;` is a QUERY
+//   NOT indexed      : `volume:<value>;`       — `volume:0;` WRITES ZERO
+//                      `mic_level:<value>;`
+//
+// Sending the indexed form to a non-indexed verb makes AE read our receiver
+// index as the VALUE.  `mic_level:0,55;` does not set 55 — it sets **0**.
+// Every AF Gain / Mic Gain press used to do exactly that; harmless only
+// while the plugin was pointed at the wrong port and nothing was listening.
+//
+// This is the same trap that took the station off the air on 2026-09-01:
+// a verb sweep sent `verb:0;` to every verb as a "query", which silently
+// zeroed the non-indexed ones.  See HANDOVER.md "Known gotchas".
+// ─────────────────────────────────────────────────────────────────────────
 
 // TCI VOLUME wire scale is dB (−60..0; −60 = silence) per the spec / AetherSDR
 // #3502; AE's internal master volume is 0–100 percent. We keep our mirror in
 // percent and convert at the wire. (Mirrors AE's volumePercentFromDb.)
 const dbToPercent = (db) => (db <= -60 ? 0 : Math.round(100 * Math.pow(10, db / 20)));
+const percentToDb = (pct) =>
+  (pct <= 0 ? -60 : Math.max(-60, Math.min(0, Math.round(20 * Math.log10(pct / 100)))));
 
 function cmdAfGain(direction) {
   const v = clamp01_100(radio.volume + direction * GAIN_STEP);
   radio.volume = v;
-  // #3502: never send `volume:0` — AE now reads 0 as 0 dB = FULL volume (was
-  // 0% mute). Emit −60 dB for true silence at the bottom of the dial; 1–100
-  // are still accepted as legacy percent by AE's compat shim.
-  return `volume:0,${v === 0 ? -60 : v};`;
+  // Single-param verb: `volume:<db>;`.  #3502 — AE reads 0 as 0 dB = FULL
+  // volume, so silence at the bottom of the dial must be −60 dB, not 0.
+  return `volume:${percentToDb(v)};`;
 }
 function cmdRfGain(direction) {
   const v = clamp01_100(radio.rfPower + direction * GAIN_STEP);
   radio.rfPower = v;
+  // Receiver-indexed verb — the `0,` here is a receiver index and belongs.
   return `drive:0,${v};`;
 }
 function cmdMicGain(direction) {
   const v = clamp01_100(radio.micLevel + direction * GAIN_STEP);
   radio.micLevel = v;
-  return `mic_level:0,${v};`;
+  // Single-param verb: `mic_level:<percent>;` — NO receiver index.
+  return `mic_level:${v};`;
 }
 
 // ─── Studio API ──────────────────────────────────────────────────────────

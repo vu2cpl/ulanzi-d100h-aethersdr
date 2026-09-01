@@ -36,8 +36,9 @@ refuses to run while it is up. Restart Studio afterwards.
 | 5 | Band stacking, and band defaults moved off the band edges |
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
 | 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
+| 8 | AF Gain / Mic Gain sent `volume:0,<v>;` and `mic_level:0,<v>;` to verbs that take **no** receiver index — AE read the index as the value, so every press wrote **0** |
 
-Patches 1–4 and 7 are genuine upstream bugs worth reporting to G0JKN.
+Patches 1–4, 7 and 8 are genuine upstream bugs worth reporting to G0JKN.
 
 ## Assignable actions
 
@@ -72,9 +73,15 @@ installed plugin has drifted from `patched/`.
 
 ## Gotchas
 
-**Probe a TCI verb before coding against it.** AetherSDR silently discards
-malformed commands, which is indistinguishable from a dead button. Send
-`verb:0;` as a query to `ws://127.0.0.1:50001` and read back the canonical shape.
+**⚠️ Probe with the bare `verb;` form — never `verb:0;`.** TCI verbs are either
+receiver-indexed (`drive:<rx>,<value>`, where `drive:0;` is a safe query) or not
+(`volume:<value>`, `mic_level:<value>`, `tx_gain:<value>`, where `verb:0;` **writes
+zero**). A verb sweep in the `verb:0;` form silenced this station's TX audio for two
+days on 2026-09-01 by zeroing AetherSDR's TCI TX gain. The bare `verb;` form is a
+query for both shapes and can never write. See HANDOVER.md "Known gotchas".
+
+AetherSDR also silently discards malformed commands, which is indistinguishable
+from a dead button — so probe before coding against a verb.
 
 **The D100H has no per-key displays** — 7 physical buttons and a knob. On-key
 labels are impossible.
