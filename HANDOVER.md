@@ -275,17 +275,26 @@ plugin files. The restore script refuses to run while it is up.
 
 - [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
       (TUNE query-then-act was tested and works — 2026-09-01.)
-- [ ] **The dial ignores the profile's `step_hz` — it steps 100 Hz, not 1 kHz.**
-      Found 2026-09-01 while verifying patch 9: the profile saves
-      `{"step_hz": "1000", "coarse_mult": "10", "press_action": "vfo_swap"}` on the
-      VFO Tune encoder, but the observed step was exactly `TX_STEP_HZ` (100), the
-      hardcoded fallback in `intSetting()`. So the saved settings are not reaching
-      the plugin for the encoder. **Pre-dates patch 9** — `dialRotate()` made the
-      same `intSetting()` call before. Prime suspect: `settingsFor()` looks up
-      `ACTION_CACHES[jsn.context]`, and dial-rotate events may not carry `context`;
-      dispatch survives only because `actionIdFor()` falls back to `jsn.uuid`.
-      Confirm by setting `DEBUG = true` and logging `jsn.context` in `dialRotate()`.
-      This is the same class of fault as patch 3, which was thought to have closed it.
+- [x] **"The dial ignores `step_hz`" was NOT a bug — closed 2026-09-01.**
+      The 100 Hz step observed while verifying patch 9 looked like `intSetting()`
+      falling back to `TX_STEP_HZ`, and was written up here as a patch-3 regression.
+      It was not. Instrumenting `onAdd` showed Studio delivering the setting exactly
+      as saved:
+      `param={"coarse_mult":"10","press_action":"vfo_swap","step_hz":"100", …}`
+      with `context` matching the cache key (`…vfo___0_2___c44be049…`). The settings
+      pipeline works and patch 3 is intact.
+      The real fault was **profile drift**: the installed profile had `step_hz` 100
+      while the repo's `profile/` copy — what `make-bundle.sh` ships to a new Mac —
+      still had the 1000 it was committed with in b745ea2. A second Mac would have
+      tuned ten times coarser than this desk. Resolved by syncing `profile/` from
+      the installed copy (100 Hz is the value actually operated with) and correcting
+      INSTALL.md, which documented 1 kHz.
+      **Lesson:** `profile/` is a hand-taken snapshot with nothing keeping it honest.
+      Diff it against the installed copy before every `make-bundle.sh`:
+      ```bash
+      diff -r ~/Library/Application\ Support/Ulanzi/UlanziDeck/ProfilesV2/*.ulanziProfile \
+              profile/*.ulanziProfile
+      ```
 - [x] **Patch 9 verified on the dial 2026-09-01** — TX-B moved through 35 kHz while
       `vfo:0,0` stayed pinned; knob returns to RX when split is off.
       Still unhandled: after a **Slice Cycle**, `radio.vfoB` still holds the

@@ -71,10 +71,15 @@ Layout as shipped (7 buttons + knob):
 
 | Position | Action |
 |----------|--------|
-| Knob | VFO Tune (1 kHz step, ×10 coarse, press = VFO A/B swap) |
+| Knob | VFO Tune (100 Hz step, ×10 coarse = 1 kHz, press = VFO A/B swap) |
 | Group of 3 | Split Enable · Band Up · Band Down |
 | Group of 2 | PTT (Momentary) · Mode Cycle |
 | Group of 2 | Mute · TUNE / ATU |
+
+Step size, coarse multiplier and the dial-press action are per-action settings
+saved in the profile, not compiled in — change them in Studio's property
+inspector for the VFO Tune action. The shipped values are the operating desk's:
+`step_hz` 100, `coarse_mult` 10, `press_action` vfo_swap.
 
 Taken from the profile manifest, which groups the keys as `1_0…1_2` (the row of
 three) and `0_0…0_1` / `2_0…2_1` (the pairs). Which pair lands on the left and

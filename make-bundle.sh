@@ -38,6 +38,28 @@ for f in plugin/app.js manifest.json \
 done
 grn "installed plugin matches patched/"
 
+# Same guard for the PROFILE.  profile/ is a hand-taken snapshot of the installed
+# profile and nothing keeps it honest: on 2026-09-01 the installed copy had
+# `step_hz` 100 while profile/ still carried the 1000 it was committed with, so a
+# second Mac would have tuned ten times coarser than this desk.  Per-action
+# settings (step_hz, coarse_mult, press_action, tci_url) live in here, so drift is
+# silent and only shows up under the operator's hand.
+INSTALLED_PROFILE="$(ls -d "$HOME/Library/Application Support/Ulanzi/UlanziDeck/ProfilesV2/"*.ulanziProfile 2>/dev/null | head -1)"
+REPO_PROFILE="$(ls -d "$HERE/profile/"*.ulanziProfile 2>/dev/null | head -1)"
+if [[ -z "$INSTALLED_PROFILE" ]]; then
+  red "No installed profile found under ProfilesV2 — cannot verify profile/ is current."
+  exit 1
+elif ! diff -r -x '.DS_Store' "$INSTALLED_PROFILE" "$REPO_PROFILE" >/dev/null 2>&1; then
+  red "profile/ differs from the installed profile:"
+  diff -r -x '.DS_Store' "$INSTALLED_PROFILE" "$REPO_PROFILE" | head -20
+  red ""
+  red "Bundling this would ship settings you are not operating with."
+  red "If the installed copy is the good one:  rsync -a \"$INSTALLED_PROFILE/\" \"$REPO_PROFILE/\""
+  exit 1
+else
+  grn "installed profile matches profile/"
+fi
+
 [[ -d "$PLUGIN/node_modules/ws" ]] || {
   echo "installing deps so the bundle is self-contained..."
   ( cd "$PLUGIN" && npm ci --omit=dev >/dev/null 2>&1 ) || { red "npm ci failed"; exit 1; }
