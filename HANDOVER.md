@@ -60,7 +60,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Seven local patches to the plugin. **A plugin update reverts every one of them**,
+Eight local patches to the plugin. **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -277,7 +277,7 @@ Attach it to a GitHub release if a fixed artifact is ever needed.
 ## Diffing against upstream
 
 `upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
-seven patches can be inspected against their true baseline and bug reports can
+eight patches can be inspected against their true baseline and bug reports can
 cite original line numbers:
 
 ```bash
@@ -286,7 +286,7 @@ diff -u upstream-original/plugin/app.js patched/plugin/app.js
 
 ## Assignable actions
 
-See **[TCI-ACTIONS.md](TCI-ACTIONS.md)** — all 50 assignable actions, probed live
+See **[TCI-ACTIONS.md](TCI-ACTIONS.md)** — all 51 assignable actions, probed live
 against the radio, split into implemented / available-to-add / confirmed-impossible,
 with the observed wire shape for each and the probe method to re-check.
 

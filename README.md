@@ -11,7 +11,7 @@ script to re-apply them after a plugin update.
 
 ## Why this exists
 
-A plugin update overwrites the plugin directory and wipes `node_modules`. All seven
+A plugin update overwrites the plugin directory and wipes `node_modules`. All eight
 patches below revert, and the failure mode is a controller that looks completely
 dead while the Studio profile still looks perfect.
 
