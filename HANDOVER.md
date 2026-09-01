@@ -202,11 +202,16 @@ plugin files. The restore script refuses to run while it is up.
 
 ## Open items
 
-- [ ] **Untested by operator:** band stacking, Slice Cycle's receiver retargeting,
-      and the patch-8 AF Gain / Mic Gain fix (`volume:<db>;` / `mic_level:<percent>;`).
-      Press each once and confirm on the wire before trusting them — these two
-      actions wrote zeros for their whole life until 2026-09-01.
+- [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
       (TUNE query-then-act was tested and works — 2026-09-01.)
+- [ ] **Patch 8 cannot be tested from the D100H.** AF Gain and Mic Gain are not bound
+      in the operator profile — all 7 keys and the knob are taken (PTT, Mode Cycle,
+      Split, Band Up/Down, Mute, TUNE, VFO). That is also why the zero-writing bug
+      never fired from a press: no two-param `mic_level` appears in any AetherSDR log.
+      To verify the corrected wire format without a button, set a distinct value from
+      a websocket and read it back:
+      `mic_level:40;` then `mic_level;` should answer `mic_level:40;`.
+      Until someone binds those actions the fix is format-correct but unexercised.
 - [ ] **Restore AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
       it was found and set to 0.5 on 2026-09-01. Confirm 0.5 is the value you actually
       want — the working sessions through 31 Aug all logged `gain=1`.
