@@ -362,20 +362,20 @@ plugin files. The restore script refuses to run while it is up.
 
 ## Open items
 
-- [ ] **Slice Cycle's receiver retargeting is untested — and unreachable.** It is not
-      bound in the profile (all 7 keys are taken), which is why it has never been
-      exercised; testing it means temporarily giving up a key. Two things to know before
-      bothering: it is **completely invisible** — AetherSDR's UI does not move, because the
-      retarget happens inside the plugin (see *What changed* 6), and the D100H has no
-      displays, so nothing anywhere shows which receiver the plugin is addressing. And with
-      only one receiver open, cycling to index 1 points every subsequent command at a
-      receiver that does not exist: the re-query `vfo:1,0;` draws no reply, so the mirror
-      goes stale and the knob acts on a frequency that is not the radio's. `SLICE_COUNT` is
-      hardcoded 2 while `trx_count` is read off the wire for Mute (patch 13) — if this is
-      ever picked up, source it from `trx_count` and skip the cycle entirely at 1.
-      For *visible* slice switching, the route is Studio's built-in Hotkey action into
-      AetherSDR's shortcut editor, not this.
-      (Band stacking tested and works — 2026-09-02. TUNE query-then-act — 2026-09-01.)
+- [x] **Slice switching dropped — operator's call, 2026-09-02. Do not re-propose it.**
+      Not worth having on this hardware with this software, in either available form, and
+      the decision covers both. **The plugin's Slice Cycle** only retargets which receiver
+      the plugin addresses (AetherSDR ignores `set_in_focus` / `rx_channel_enable`), which
+      is invisible at both ends — AE's UI does not move, and the D100H has no displays —
+      and with one receiver open it aims every command at a receiver that does not exist,
+      leaving the mirror silently stale. It was never bound anyway; all 7 keys are taken,
+      so binding it costs a key that earns its place. **The AetherSDR-shortcut route**
+      (Studio's Hotkey action into AE's own next/previous-slice shortcut) would be real and
+      visible, but needs AE focused with View > Keyboard Shortcuts on — a precondition that
+      does not hold mid-operating. Both were offered and both declined. If a future session
+      is tempted: the prize is one receiver's worth of retargeting on a single-receiver
+      desk, and the cost is a key. `SLICE_COUNT` stays hardcoded 2; nothing reads it unless
+      the action is bound.
 
 - [x] **Dial snap-to-grid + the stale VFO tooltip — both landed as patch 15, 2026-09-02.**
       Raised as two separate deferrals (the tooltip 2026-09-02, the snap the same day) on the
