@@ -199,7 +199,11 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
 15. **The dial snaps to the step grid, and the VFO tooltip stopped lying.** Two
     small fixes landed together because each alone was too cheap to justify the
-    Studio quit a redeploy costs.
+    Studio quit a redeploy costs. **Verified on the radio 2026-09-02**, off-grid —
+    which is the only case that proves anything, since an on-grid base behaves
+    identically before and after this patch. (AetherSDR's log confirmed the
+    on-grid half independently: every post-deploy fast write landed exactly on a
+    1 kHz boundary through direction reversals.)
     *Snap:* `dialRotate()` added `direction * hz` to wherever the VFO happened to
     sit, so an off-grid base — a band stack, a click in AetherSDR's panadapter, an
     RIT nudge — kept its offset for the rest of the session: 7.074123 walked
