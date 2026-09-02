@@ -1,6 +1,6 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 
 ---
@@ -337,6 +337,36 @@ plugin files. The restore script refuses to run while it is up.
 
 - [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
       (TUNE query-then-act was tested and works — 2026-09-01.)
+
+- [ ] **Fold the stale VFO tooltip into the next plugin patch** (deferred deliberately
+      2026-09-02, operator's call). `patched/manifest.json`'s `vfo` Tooltip still reads
+      *"Tune the **active slice** with the dial … press = **mode/swap**"* — wrong on both
+      counts since patch 9 (the dial tunes the TX slice always) and patch 14 (press is the
+      fast/slow step toggle). It is property-inspector hover text; no behaviour reads it.
+      Correcting it alone would cost a Studio quit plus a `restore-plugin-patches.sh` run
+      for a string nobody reads mid-contest, so it waits for the next patch that already
+      earns the redeploy. Replacement line, ready to drop in:
+      `Tune the TX slice with the dial. Rotate = step, press = fast/slow step, press+rotate = coarse step.`
+
+- [ ] **Numbering trap — the next plugin patch is 15, and items 15/16 above are NOT it.**
+      This "What changed" list runs plugin patches 1–14 and then continues 15 (`tci-watch.sh`)
+      and 16 (the tooling/doc sweep) for items that patch no plugin code. README's
+      "What gets patched" table and `restore-plugin-patches.sh`'s header count only the 14
+      plugin patches, so the two numbering schemes diverge after 14. When patch 15 lands,
+      insert it here as 15 and renumber the two tooling entries to 16/17, so both lists
+      agree on what "patch N" means. (d36329a already fixed one round of this drift.)
+
+- [x] **The `fastStep` latch is invisible by design — behavioural fix declined 2026-09-02.**
+      Patch 14's knob press latches fast (`step_hz × coarse_mult` = 1 kHz on this desk) with
+      no indicator, so a stray press tunes ten times too far and the only symptom is the VFO
+      running away; `console.log('[vfo] step now …')` does not help, since Studio eats plugin
+      stdout. **Do not propose an on-key or on-knob label as the fix** — see *Hardware facts
+      that matter*: the D100H has no displays at all, and `setStateIcon` / `setPathIcon` send
+      cleanly and render nothing. A label patch was written on 2026-09-02 and backed out for
+      exactly this reason. Behavioural alternatives were offered (auto-revert to slow after an
+      idle timeout; drop the latch and rely on momentary press-and-rotate; a macOS notification
+      on toggle) and the operator chose to keep current behaviour. Recovery is: press the knob
+      once, or restart the plugin — `fastStep: false` is in the initial `radio` object.
 - [x] **"The dial ignores `step_hz`" was NOT a bug — closed 2026-09-01.**
       The 100 Hz step observed while verifying patch 9 looked like `intSetting()`
       falling back to `TX_STEP_HZ`, and was written up here as a patch-3 regression.
