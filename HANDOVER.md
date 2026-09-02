@@ -348,6 +348,41 @@ plugin files. The restore script refuses to run while it is up.
       earns the redeploy. Replacement line, ready to drop in:
       `Tune the TX slice with the dial. Rotate = step, press = fast/slow step, press+rotate = coarse step.`
 
+- [ ] **Make the dial snap to the step grid, slow and fast** (raised by operator 2026-09-02;
+      candidate patch 15, pairs with the tooltip fix above since both wait on the same redeploy).
+      `dialRotate()` currently does `tuneBaseHz() + direction * hz` — a pure increment, so the
+      dial preserves whatever offset it starts from. Land on 7.074123 MHz (band stack, a click
+      in AetherSDR's panadapter, an RIT nudge) and every click thereafter stays 23 Hz off the
+      grid: slow tuning walks …123, …223, …323 and fast walks …123, …1123. Wanted instead is
+      the usual radio behaviour — the first click off-grid snaps to the nearest multiple of the
+      current step **in the direction of rotation**, and clicks after that are full steps. That
+      makes slow land on 100 Hz boundaries and fast on 1 kHz ones with the profile's current
+      `step_hz` 100 / `coarse_mult` 10; quantising to `hz` rather than to a hardcoded 100/1000
+      means press-and-rotate snaps to its own 10 kHz grid too, and the numbers follow the
+      inspector if either setting is ever changed. Replacement for the last line of
+      `dialRotate()` in `patched/plugin/app.js:658`, ready to drop in:
+
+      ```js
+      // Snap to the step grid: an off-grid base (band stack, a click in AE's
+      // panadapter, RIT) otherwise keeps its offset forever, since every click
+      // is a pure increment.  First click off-grid lands on the nearest
+      // multiple of hz in the direction of travel; after that, full steps.
+      const base = tuneBaseHz();
+      const off  = base % hz;
+      tciSend(cmdTuneTo(off === 0 ? base + direction * hz
+                                  : direction > 0 ? base - off + hz
+                                                  : base - off));
+      ```
+
+      Not a behaviour change on an already-on-grid VFO, which is the normal case, so the risk
+      is low. Two things to check on the radio when it lands: that the first click off-grid
+      moves *less* than a full step and does not feel like a dropped click, and that fast
+      tuning up from just below a 1 kHz boundary advances rather than sticking — both follow
+      from the `off === 0` branch, but the whole point of the patch is the off-grid path.
+      Note this does not make repeated fast clicks any safer against a stale `radio.frequency`
+      mirror: two clicks computed from the same lagging base already landed on one frequency
+      before this change and still do.
+
 - [ ] **Numbering trap — the next plugin patch is 15, and items 15/16 above are NOT it.**
       This "What changed" list runs plugin patches 1–14 and then continues 15 (`tci-watch.sh`)
       and 16 (the tooling/doc sweep) for items that patch no plugin code. README's
