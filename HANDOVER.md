@@ -362,8 +362,20 @@ plugin files. The restore script refuses to run while it is up.
 
 ## Open items
 
-- [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
-      (TUNE query-then-act was tested and works — 2026-09-01.)
+- [ ] **Slice Cycle's receiver retargeting is untested — and unreachable.** It is not
+      bound in the profile (all 7 keys are taken), which is why it has never been
+      exercised; testing it means temporarily giving up a key. Two things to know before
+      bothering: it is **completely invisible** — AetherSDR's UI does not move, because the
+      retarget happens inside the plugin (see *What changed* 6), and the D100H has no
+      displays, so nothing anywhere shows which receiver the plugin is addressing. And with
+      only one receiver open, cycling to index 1 points every subsequent command at a
+      receiver that does not exist: the re-query `vfo:1,0;` draws no reply, so the mirror
+      goes stale and the knob acts on a frequency that is not the radio's. `SLICE_COUNT` is
+      hardcoded 2 while `trx_count` is read off the wire for Mute (patch 13) — if this is
+      ever picked up, source it from `trx_count` and skip the cycle entirely at 1.
+      For *visible* slice switching, the route is Studio's built-in Hotkey action into
+      AetherSDR's shortcut editor, not this.
+      (Band stacking tested and works — 2026-09-02. TUNE query-then-act — 2026-09-01.)
 
 - [x] **Dial snap-to-grid + the stale VFO tooltip — both landed as patch 15, 2026-09-02.**
       Raised as two separate deferrals (the tooltip 2026-09-02, the snap the same day) on the
