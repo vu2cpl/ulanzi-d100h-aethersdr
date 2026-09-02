@@ -65,6 +65,7 @@ restore-plugin-patches.sh    re-apply them, with version guard + verification
 tci-probe.sh                 query TCI safely (one arg = read, two = confirmed write)
 tci-watch.sh                 which verbs BROADCAST vs only answer a query (read-only)
 backups/                     what was overwritten, timestamped (created on first run)
+d100h-aethersdr-macbook.zip  the built bundle, committed for download on the target Mac
 INSTALL.md                   installing on another Mac
 make-bundle.sh               build the self-contained install zip
 HANDOVER.md                  full story, gotchas, open items
@@ -73,14 +74,26 @@ TCI-ACTIONS.md               all 51 assignable actions, probe-verified
 
 ## Installing on another Mac
 
+The built bundle is committed as `d100h-aethersdr-macbook.zip`, so the target Mac
+can download it straight from this repo. To rebuild it after a patch:
+
 ```bash
 ./make-bundle.sh            # -> ~/Downloads/d100h-aethersdr-macbook.zip
+cp ~/Downloads/d100h-aethersdr-macbook.zip .
 ```
 
 Bundles the patched plugin **with `node_modules`**, the profile, and
 [INSTALL.md](INSTALL.md). The target Mac needs neither npm nor system Node —
 Ulanzi Studio ships its own runtime. The script refuses to build if the
-installed plugin has drifted from `patched/`.
+installed plugin or the profile has drifted from the repo.
+
+**The committed zip goes stale on every patch** — it is a build artifact, not a
+source of truth, and unlike `patched/` nothing guards it. It also carries G0JKN's
+full plugin and `node_modules`, neither of which this repo otherwise vendors.
+Rebuild and re-commit it in the same cycle as any plugin patch, or delete it and
+build on demand. **Quit Studio before building**: it flushes profile state on its
+own schedule, so a bundle built while it is running can miss an edit by minutes
+(it shipped an unlabelled Mute key that way on 2026-09-02).
 
 ## Gotchas
 

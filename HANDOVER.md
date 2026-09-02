@@ -492,9 +492,23 @@ the D100H by device UUID `4250315A3538380201E26E435603F278`, which comes from th
 dial itself, so pair the dial on the target Mac **before** first launching Studio
 there or the profile will not attach.
 
-The built zip is deliberately NOT committed: it is derived, it would drift from
-`patched/` silently, and it carries `node_modules`, which `.gitignore` excludes.
-Attach it to a GitHub release if a fixed artifact is ever needed.
+**The built zip IS committed as `d100h-aethersdr-macbook.zip` — reversed on
+2026-09-02, operator's call.** It had deliberately not been, on the grounds that it
+is derived, drifts from `patched/` silently, and carries `node_modules` that
+`.gitignore` excludes; the reason to carry it anyway is that the target Mac can
+then download it straight from the private repo instead of needing a file transfer.
+The objections still hold and are now the maintenance burden: **rebuild and
+re-commit the zip in the same cycle as any plugin patch**, because nothing guards
+it the way `make-bundle.sh` guards `patched/` and `profile/` — a stale zip is
+indistinguishable from a current one. It also vendors G0JKN's full plugin, which
+this repo otherwise deliberately does not. If it starts drifting in practice,
+delete it and go back to building on demand, or attach it to a release instead.
+
+**Build with Studio quit.** `make-bundle.sh` guards against profile drift but has
+no Studio-running check the way `restore-plugin-patches.sh` does, and Studio
+flushes profile state on its own schedule: a bundle built while it is up can be
+minutes stale. On 2026-09-02 that shipped a zip whose Mute key had no label,
+caught by the operator, and cost a rebuild and a second profile commit.
 
 ## Diffing against upstream
 
