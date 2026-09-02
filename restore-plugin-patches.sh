@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #   A plugin update from upstream overwrites the plugin directory and wipes
-#   node_modules.  Every one of the fourteen plugin fixes below then reverts, and the
+#   node_modules.  Every one of the fifteen plugin fixes below then reverts, and the
 #   symptom is a controller that looks completely dead — the profile still
 #   looks correct, the buttons just do nothing.  Run this after any update.
 #
@@ -31,6 +31,9 @@
 #  13. Mute was per-receiver; now masters every open slice via trx_count
 #  14. Knob press is fast/slow tune step, not VFO A/B swap (swap trades RX and
 #      TX under split).  Needs press_action=step_toggle in the profile
+#  15. Dial snaps to the step grid — tuning was a pure increment, so an off-grid
+#      VFO kept its offset forever and never reached a 100 Hz / 1 kHz boundary.
+#      Also corrects the `vfo` tooltip, stale since patches 9 and 14
 #
 # Usage:  ./restore-plugin-patches.sh [--check]
 #         --check  report status only, change nothing

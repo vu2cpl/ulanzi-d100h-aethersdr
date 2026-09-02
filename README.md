@@ -11,7 +11,7 @@ script to re-apply them after a plugin update.
 
 ## Why this exists
 
-A plugin update overwrites the plugin directory and wipes `node_modules`. All fourteen
+A plugin update overwrites the plugin directory and wipes `node_modules`. All fifteen
 patches below revert, and the failure mode is a controller that looks completely
 dead while the Studio profile still looks perfect.
 
@@ -43,9 +43,11 @@ refuses to run while it is up. Restart Studio afterwards.
 | 12 | Mode cycle listed `cwr` but AE reports `cw`, so `indexOf` returned −1 and the cycle reset to entry 0 whenever the radio was on CW. Now CW / USB / DIGU / LSB |
 | 13 | Mute was per-receiver, leaving the other slice audible. Now masters every open slice, tracking the (dynamic) `trx_count` |
 | 14 | Knob press is fast/slow tune step. It was VFO A/B swap, which under split trades RX and TX — the wrong thing to have under your thumb mid-pileup |
+| 15 | Dial snaps to the step grid. Tuning was a pure increment, so an off-grid VFO (band stack, panadapter click, RIT) kept its offset forever — 7.074123 walked …223, …323 and never reached a 100 Hz boundary. Also corrected the `vfo` tooltip, which still described pre-patch-9/14 behaviour |
 
 Patches 1–4, 7–10 and 12–13 are genuine upstream bugs worth reporting to G0JKN.
-Patches 11 and 14 are operator preference, not defects.
+Patches 11, 14 and 15 are operator preference, not defects — patch 15's tooltip half
+describes *these* patches, so it has nothing to report upstream either.
 
 ## Assignable actions
 

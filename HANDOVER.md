@@ -68,7 +68,7 @@ AetherSDR *does* need **Input Monitoring** granted if you ever enable that path
 
 ## What changed
 
-Fourteen local patches to the plugin (items 15-16 below are tooling, not patches). **A plugin update reverts every one of them**,
+Fifteen local patches to the plugin (items 16-17 below are tooling, not patches). **A plugin update reverts every one of them**,
 and the symptom is a controller that looks completely dead while the profile still
 looks perfect. Run `./restore-plugin-patches.sh` after any update.
 
@@ -197,12 +197,35 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
     fast (`step_hz × coarse_mult`, latched by the press), and press-and-rotate
     multiplying again on top of either.
 
-15. **`tci-watch.sh` added** — the broadcast-vs-query question has now caused
+15. **The dial snaps to the step grid, and the VFO tooltip stopped lying.** Two
+    small fixes landed together because each alone was too cheap to justify the
+    Studio quit a redeploy costs.
+    *Snap:* `dialRotate()` added `direction * hz` to wherever the VFO happened to
+    sit, so an off-grid base — a band stack, a click in AetherSDR's panadapter, an
+    RIT nudge — kept its offset for the rest of the session: 7.074123 walked
+    …123, …223, …323 on slow and …123, …1123 on fast, never reaching a boundary.
+    Now the first click off-grid lands on the nearest multiple of the step *in the
+    direction of travel* and every click after that is a full step, so slow lands
+    on 100 Hz boundaries and fast on 1 kHz ones with this desk's `step_hz` 100 /
+    `coarse_mult` 10. It quantises to the computed step rather than to a hardcoded
+    100/1000, so press-and-rotate snaps to its own 10 kHz grid and the boundaries
+    follow the inspector if either setting is ever changed. Two consequences worth
+    knowing at the knob: the first click off-grid moves *less* than a full step
+    (from 7.074999 a fast click up moves 1 Hz to 7.075000 — correct, but it can
+    read as a dropped click), and up-then-down no longer returns you to an
+    off-grid start, which is how every radio with a step grid behaves.
+    *Tooltip:* `manifest.json`'s `vfo` Tooltip still described pre-patch-9/14
+    behaviour — "Tune the **active slice** … press = **mode/swap**" — wrong on both
+    counts. Now: *Tune the TX slice with the dial. Rotate = step, press = fast/slow
+    step, press+rotate = coarse step.* Property-inspector hover text only; no
+    behaviour reads it.
+
+16. **`tci-watch.sh` added** — the broadcast-vs-query question has now caused
     three patches (7, 9, 10), so it is a tool rather than a thing to re-derive.
     Strictly read-only: unlike `tci-probe.sh` it sends nothing at all. Its first
     run turned up `active_slice` (see Open items).
 
-16. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
+17. **Tooling + doc drift, found during the 2026-09-01 sweep.** Added `tci-probe.sh`
    (one argument reads, a value writes and confirms first) so the `verb:0;` mistake
    cannot recur, and shipped it in the install bundle. `INSTALL.md`'s key-layout
    table was wrong — it listed a **MOX Toggle** the profile does not contain and
@@ -338,58 +361,22 @@ plugin files. The restore script refuses to run while it is up.
 - [ ] **Untested by operator:** band stacking and Slice Cycle's receiver retargeting.
       (TUNE query-then-act was tested and works — 2026-09-01.)
 
-- [ ] **Fold the stale VFO tooltip into the next plugin patch** (deferred deliberately
-      2026-09-02, operator's call). `patched/manifest.json`'s `vfo` Tooltip still reads
-      *"Tune the **active slice** with the dial … press = **mode/swap**"* — wrong on both
-      counts since patch 9 (the dial tunes the TX slice always) and patch 14 (press is the
-      fast/slow step toggle). It is property-inspector hover text; no behaviour reads it.
-      Correcting it alone would cost a Studio quit plus a `restore-plugin-patches.sh` run
-      for a string nobody reads mid-contest, so it waits for the next patch that already
-      earns the redeploy. Replacement line, ready to drop in:
-      `Tune the TX slice with the dial. Rotate = step, press = fast/slow step, press+rotate = coarse step.`
+- [x] **Dial snap-to-grid + the stale VFO tooltip — both landed as patch 15, 2026-09-02.**
+      Raised as two separate deferrals (the tooltip 2026-09-02, the snap the same day) on the
+      grounds that neither alone was worth the Studio quit a redeploy costs; the operator's
+      call was to pair them, which is what "wait for the next patch that already earns the
+      redeploy" was for. See patch 15 under *What changed* for the behaviour and its two
+      knob-feel consequences. The snap arithmetic was checked against off-grid, on-grid,
+      boundary-adjacent and reversal cases before deploying.
 
-- [ ] **Make the dial snap to the step grid, slow and fast** (raised by operator 2026-09-02;
-      candidate patch 15, pairs with the tooltip fix above since both wait on the same redeploy).
-      `dialRotate()` currently does `tuneBaseHz() + direction * hz` — a pure increment, so the
-      dial preserves whatever offset it starts from. Land on 7.074123 MHz (band stack, a click
-      in AetherSDR's panadapter, an RIT nudge) and every click thereafter stays 23 Hz off the
-      grid: slow tuning walks …123, …223, …323 and fast walks …123, …1123. Wanted instead is
-      the usual radio behaviour — the first click off-grid snaps to the nearest multiple of the
-      current step **in the direction of rotation**, and clicks after that are full steps. That
-      makes slow land on 100 Hz boundaries and fast on 1 kHz ones with the profile's current
-      `step_hz` 100 / `coarse_mult` 10; quantising to `hz` rather than to a hardcoded 100/1000
-      means press-and-rotate snaps to its own 10 kHz grid too, and the numbers follow the
-      inspector if either setting is ever changed. Replacement for the last line of
-      `dialRotate()` in `patched/plugin/app.js:658`, ready to drop in:
-
-      ```js
-      // Snap to the step grid: an off-grid base (band stack, a click in AE's
-      // panadapter, RIT) otherwise keeps its offset forever, since every click
-      // is a pure increment.  First click off-grid lands on the nearest
-      // multiple of hz in the direction of travel; after that, full steps.
-      const base = tuneBaseHz();
-      const off  = base % hz;
-      tciSend(cmdTuneTo(off === 0 ? base + direction * hz
-                                  : direction > 0 ? base - off + hz
-                                                  : base - off));
-      ```
-
-      Not a behaviour change on an already-on-grid VFO, which is the normal case, so the risk
-      is low. Two things to check on the radio when it lands: that the first click off-grid
-      moves *less* than a full step and does not feel like a dropped click, and that fast
-      tuning up from just below a 1 kHz boundary advances rather than sticking — both follow
-      from the `off === 0` branch, but the whole point of the patch is the off-grid path.
-      Note this does not make repeated fast clicks any safer against a stale `radio.frequency`
-      mirror: two clicks computed from the same lagging base already landed on one frequency
-      before this change and still do.
-
-- [ ] **Numbering trap — the next plugin patch is 15, and items 15/16 above are NOT it.**
-      This "What changed" list runs plugin patches 1–14 and then continues 15 (`tci-watch.sh`)
-      and 16 (the tooling/doc sweep) for items that patch no plugin code. README's
-      "What gets patched" table and `restore-plugin-patches.sh`'s header count only the 14
-      plugin patches, so the two numbering schemes diverge after 14. When patch 15 lands,
-      insert it here as 15 and renumber the two tooling entries to 16/17, so both lists
-      agree on what "patch N" means. (d36329a already fixed one round of this drift.)
+- [x] **Numbering trap resolved — patch 15 landed and the two lists agree again (2026-09-02).**
+      The "What changed" list ran plugin patches 1–14 and then continued 15/16 for tooling
+      items that patch no plugin code, while README's table and `restore-plugin-patches.sh`
+      counted only the 14 plugin patches. Patch 15 is now inserted as 15 and the tooling
+      entries renumbered to 16/17, so "patch N" means the same thing everywhere. **The trap
+      is structural, not spent** — the next plugin patch is 16 and item 16 above is *not* it,
+      so renumber the tooling entries to 17/18 when it lands. (d36329a and this commit are
+      two rounds of the same drift; a third is likely.)
 
 - [x] **The `fastStep` latch is invisible by design — behavioural fix declined 2026-09-02.**
       Patch 14's knob press latches fast (`step_hz × coarse_mult` = 1 kHz on this desk) with
@@ -496,7 +483,7 @@ Attach it to a GitHub release if a fixed artifact is ever needed.
 ## Diffing against upstream
 
 `upstream-original/` holds G0JKN's plugin exactly as shipped (v0.1.5), so the
-fourteen patches can be inspected against their true baseline and bug reports can
+fifteen patches can be inspected against their true baseline and bug reports can
 cite original line numbers:
 
 ```bash

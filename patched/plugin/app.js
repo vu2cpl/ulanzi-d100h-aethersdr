@@ -655,7 +655,19 @@ function dialRotate(jsn, direction, coarse) {
   const hz = intSetting(jsn, 'step_hz', TX_STEP_HZ)
            * (radio.fastStep ? mult : 1)
            * (coarse ? mult : 1);
-  tciSend(cmdTuneTo(tuneBaseHz() + direction * hz));
+  // Snap to the step grid.  Tuning used to be a pure increment from wherever
+  // the VFO happened to sit, so an off-grid base — a band stack, a click in
+  // AetherSDR's panadapter, an RIT nudge — kept its offset for the rest of the
+  // session (7.074123 walked .123, .223, .323 and never reached a boundary).
+  // The first click off-grid lands on the nearest multiple of the step in the
+  // direction of travel; every click after that is a full step.  Quantising to
+  // `hz` rather than to a fixed 100/1000 means press-and-rotate snaps to its
+  // own coarse grid too, and the boundaries follow the inspector's settings.
+  const base = tuneBaseHz();
+  const off  = base % hz;
+  tciSend(cmdTuneTo(off === 0 ? base + direction * hz
+                              : direction > 0 ? base - off + hz
+                                              : base - off));
 }
 
 $UD.onDialRotateRight((jsn)     => dialRotate(jsn, +1, false));

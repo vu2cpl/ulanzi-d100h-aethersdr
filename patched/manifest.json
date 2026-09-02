@@ -19,7 +19,7 @@
       "Controllers": [
         "Encoder"
       ],
-      "Tooltip": "Tune the active slice with the dial. Rotate = step, press+rotate = coarse step, press = mode/swap.",
+      "Tooltip": "Tune the TX slice with the dial. Rotate = step, press = fast/slow step, press+rotate = coarse step.",
       "UUID": "com.g0jkn.aethersdr.controller.vfo",
       "SupportedInMultiActions": false,
       "States": [
