@@ -508,7 +508,11 @@ delete it and go back to building on demand, or attach it to a release instead.
 no Studio-running check the way `restore-plugin-patches.sh` does, and Studio
 flushes profile state on its own schedule: a bundle built while it is up can be
 minutes stale. On 2026-09-02 that shipped a zip whose Mute key had no label,
-caught by the operator, and cost a rebuild and a second profile commit.
+caught by the operator, and cost a rebuild and a second profile commit. **Adding the guard
+was offered and declined 2026-09-02 — do not re-propose it**; quitting Studio first
+is the standing workaround, and the operator's call is that a two-line check is not
+worth another plugin-adjacent edit. Recorded here because the gap is written down
+right above it, and a future session would otherwise read it as an obvious to-do.
 
 ## Diffing against upstream
 
