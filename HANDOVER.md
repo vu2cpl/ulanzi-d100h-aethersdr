@@ -487,6 +487,27 @@ plugin files. The restore script refuses to run while it is up.
       upstream's README documents `npm install` as install step 3; it only bit us
       because the plugin was installed by copying the folder rather than following
       that step. Watch the issue for a reply.
+- [x] **G0JKN replied 2026-09-03; PR is open.** He synced the repo to the in-tree
+      **v0.1.7** (`909d90b`), which closes findings **1** (port default — with a
+      `migrateTciUrl()` that rewrites a persisted 40001, better than our patch) and
+      **5** (Slice Cycle removed outright). 0.1.7 also adds five rotary actions and
+      keeps our TCI `volume` dB handling.
+      He challenged finding 4's mode vocabulary and was right — see the mode-token
+      entry above; the wrong list was our own probe filtering `modulations_list`.
+      **PR: [nigelfenton/aethersdr-ulanzi-plugin#4](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/pull/4)**,
+      from `vu2cpl/aethersdr-ulanzi-plugin` branch `fix/persistence-mode-tune`, four
+      commits on `909d90b`: inspector persistence, mode-cycle case compare, TUNE
+      query-then-act (its own commit, as he asked), README roadmap.
+      **Not yet tested on our radio in that form** — this station runs the
+      0.1.5-based patched build, and the PR says so explicitly. If we do test it,
+      install the branch and give TUNE a real ATU cycle.
+      Two things learned from him, server-side: AE broadcasts `tune_drive:` but
+      **never** `tune:`, and `cmdVolume` reads a sent `0` as 0 dB = **FULL volume**
+      (send -60 for silence). He tests on Windows with a D200H/D200X.
+      **No `mute` action exists at 0.1.7** — he suggested folding a `mute` index fix
+      into the TUNE commit, but there is no manifest action, no `case 'mute'` and no
+      builder, only a dead `radio.muted` field. Flagged in the PR; our Mute (patch 13)
+      is a local addition, not an upstream fix.
 - [ ] `vfo_swap` on knob press is guarded — it does nothing unless AetherSDR has
       reported a VFO B for the slice. Silent by design; may look broken. In practice
       the guard should never fire: the connect burst carries `vfo:<rx>,1` for every
