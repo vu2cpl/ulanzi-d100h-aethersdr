@@ -81,6 +81,7 @@ patched/                     known-good plugin files (base: upstream v0.1.5)
 restore-plugin-patches.sh    re-apply them, with version guard + verification
 tci-probe.sh                 query TCI safely (one arg = read, two = confirmed write)
 tci-watch.sh                 which verbs BROADCAST vs only answer a query (read-only)
+watch-ae-log.sh              what the PLUGIN actually sent, from AE's own log (read-only)
 backups/                     what was overwritten, timestamped (created on first run)
 d100h-aethersdr-macbook.zip  the built bundle, committed for download on the target Mac
 INSTALL.md                   installing on another Mac
@@ -142,6 +143,22 @@ control that looks right and is subtly wrong — it has cost three patches now
 
 Exercise the control while it runs — a verb nobody touched cannot broadcast, so
 "burst only" is not proof of query-only.
+
+Those two ask the radio. The third question — *what did the plugin actually
+send?* — the wire cannot answer, because Studio swallows plugin stdout through a
+pipe. AetherSDR logs every command it receives, which is the same evidence from
+the other end and needs no plugin change to get at:
+
+```bash
+./watch-ae-log.sh          # follow every command AE receives
+./watch-ae-log.sh tune     # only lines matching `tune`
+```
+
+This is what verified all three upstream fixes on the radio: the mode cycle
+walking `usb -> lsb -> cw -> digu -> digl -> am -> fm`, and TUNE's query-then-act
+pairs with timestamps, which is what proved a second press could finally stop a
+tune. It filters MSHV's once-a-second `vfo` / `modulation` poll, which otherwise
+buries everything.
 
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.
