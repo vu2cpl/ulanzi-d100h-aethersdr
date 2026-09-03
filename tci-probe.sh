@@ -61,8 +61,19 @@ const value = process.env.TCI_VALUE;
 const ws = new WebSocket(process.env.TCI_URL);
 let ready = false;
 
-// Chatter that drowns out the answer.
-const NOISE = /^(rx_smeter|tx_smeter|vfo_limits|if_limits|modulations_list)/;
+// Chatter that drowns out the answer.  ONLY the high-rate meters belong here.
+// vfo_limits, if_limits and modulations_list were in this list until 2026-09-03
+// and should never have been: they are one-shot burst lines, not chatter, and
+// each one states a capability.  Filtering modulations_list hid the mode
+// vocabulary from every dump AND from an explicit
+//     ./tci-probe.sh modulations_list
+// query -- which is how patch 4 came to claim cw, am and fm do not exist when
+// the burst lists all three.  That wrong list went out in upstream issue #3.
+// If a burst line is verbose, let it be verbose; a probe must never quietly
+// withhold an answer.
+// (Careful: this whole program is inside a single-quoted shell string, so no
+// apostrophes in these comments -- one closes the quote and mangles the file.)
+const NOISE = /^(rx_smeter|tx_smeter)/;
 
 ws.on("open", () => {
   if (!verb) return;                       // no verb: just print the connect burst

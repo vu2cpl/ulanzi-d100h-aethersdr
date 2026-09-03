@@ -88,10 +88,23 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    `tci_url`, which is why patch 1 was unavoidable. Plugin now also handles
    `onDidReceiveSettings`.
 
-4. **Invalid mode tokens.** `CW`, `AM`, `FM` are not AetherSDR modes. The real
-   vocabulary is `usb lsb cwr sam nfm digu digl rtty`, lowercase. A case mismatch
-   also made `MODE_CYCLE.indexOf()` return `-1`, pinning the cycle to entry 0 so it
-   never advanced. Cycle is now limited to the working set `usb, lsb, digu, cwr`.
+4. **Mode tokens are lowercase.** AetherSDR reports `modulation:0,usb`, so a
+   mixed-case `MODE_CYCLE` made `indexOf()` return `-1`, pinning the cycle to
+   entry 0 so it never advanced. Compare lowercase and it advances.
+
+   The *vocabulary* half of this entry was wrong and is corrected here. It read:
+   "`CW`, `AM`, `FM` are not AetherSDR modes. The real vocabulary is
+   `usb lsb cwr sam nfm digu digl rtty`." All three exist. AetherSDR's connect
+   burst is `modulations_list:usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty;` and
+   the handler lowercases its argument before the lookup, so `modulation:0,CW;`
+   is accepted too — verified on the radio 2026-09-03: `modulation:0,LSB;`
+   echoes `modulation:0,lsb;`, `modulation:0,AM;` echoes `modulation:0,am;`.
+   `cwr` is CW **reverse** (CWL on the Flex), not plain CW, so a cycle mapping
+   CW onto `cwr` puts the sideband on the wrong side — which is what patch 12
+   went on to fix. The wrong list came from `tci-probe.sh` filtering
+   `modulations_list` as noise: the tool suppressed the authoritative line and
+   the gap got filled by inference. It went out in upstream issue #3 and was
+   caught there by G0JKN. Probe output must never be silently filtered.
 
 5. **Band stacking.** Band up/down jumped to fixed defaults, several of which sat on
    the **band edge** (40m `7.200`, 80m `3.800` are the top limits in Region 3).

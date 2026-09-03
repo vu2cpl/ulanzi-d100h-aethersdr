@@ -32,7 +32,7 @@ refuses to run while it is up. Restart Studio afterwards.
 | 1 | TCI port `40001` → `50001` (AetherSDR's actual default) |
 | 2 | `npm ci` — upstream ships no `node_modules`, so `import ws` killed the plugin at startup |
 | 3 | `setSettings()` persistence + `$UD.connect()` — no inspector setting had ever saved |
-| 4 | Valid AetherSDR mode tokens (`usb`/`lsb`/`cwr`/`digu`; `CW`/`AM`/`FM` don't exist) |
+| 4 | Mode tokens are lowercase in AE's reports, so the cycle's mixed-case list never matched. (The tokens themselves were fine — an early note here claimed `CW`/`AM`/`FM` didn't exist; they do. See patch 12.) |
 | 5 | Band stacking, and band defaults moved off the band edges |
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
 | 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
