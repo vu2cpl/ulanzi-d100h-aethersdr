@@ -45,9 +45,26 @@ refuses to run while it is up. Restart Studio afterwards.
 | 14 | Knob press is fast/slow tune step. It was VFO A/B swap, which under split trades RX and TX — the wrong thing to have under your thumb mid-pileup |
 | 15 | Dial snaps to the step grid. Tuning was a pure increment, so an off-grid VFO (band stack, panadapter click, RIT) kept its offset forever — 7.074123 walked …223, …323 and never reached a 100 Hz boundary. Also corrected the `vfo` tooltip, which still described pre-patch-9/14 behaviour |
 
-Patches 1–4, 7–10 and 12–13 are genuine upstream bugs worth reporting to G0JKN.
 Patches 11, 14 and 15 are operator preference, not defects — patch 15's tooltip half
-describes *these* patches, so it has nothing to report upstream either.
+describes *these* patches, so it has nothing to report upstream either. Patch 2 is not a
+bug either: upstream documents `npm install` as an install step, and it only bit us
+because the plugin was installed by copying the folder.
+
+The rest are genuine upstream bugs, and **they have been reported**, as
+[nigelfenton/aethersdr-ulanzi-plugin#3](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/issues/3):
+
+- **Closed by G0JKN's v0.1.7 sync** — the TCI port default (patch 1, now with a
+  `migrateTciUrl()` we never wrote) and the malformed `if:` slice command (patch 6,
+  Slice Cycle removed outright).
+- **Fixed in our [PR #4](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/pull/4)** —
+  inspector persistence (patch 3), the mode-cycle case compare (patch 12) and TUNE
+  query-then-act (patch 7). Verified on the radio 2026-09-03, which turned up two more
+  faults that only appear once settings actually save: `setSettings()` replaces rather
+  than merges the stored object, and the form does not repopulate on reopen.
+
+One correction worth keeping visible: the original report claimed `CW`, `AM` and `FM`
+were not AetherSDR modes. They are — the wrong list came from `tci-probe.sh` filtering
+`modulations_list` out of its own output. G0JKN caught it; see patch 4.
 
 ## Assignable actions
 

@@ -94,10 +94,22 @@ the TX path.
 
 ## C. NOT possible — probed and silent
 
-**Mode tokens — `cw` AND `cwr` both exist.** `modulations_list;` answers
-`usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty` (2026-09-01). AetherSDR *reports*
-`cw`, so a cycle built on `cwr` never matches the live mode and pins itself to
-entry 0 — patch 12. Query the list rather than trusting any written-down set.
+**Mode tokens — `cw` AND `cwr` both exist.** The vocabulary is
+`usb,lsb,cw,cwr,am,sam,fm,nfm,digu,digl,rtty`. AetherSDR *reports* `cw`, so a cycle
+built on `cwr` never matches the live mode and pins itself to entry 0 — patch 12.
+
+**Read it from the CONNECT BURST — `modulations_list` does not answer a direct
+query** (verified 2026-09-03: `modulations_list;` draws no reply; the only copy of
+the line arrives unprompted in the burst). An earlier version of this note said the
+query answers, which was wrong. It is also case-insensitive on input: AE lower-cases
+the argument before the lookup, so `modulation:0,LSB;` echoes `modulation:0,lsb;`.
+
+This is the entry that produced the project's worst piece of misinformation — a
+written-down set missing `cw`, `am` and `fm`, which went into an upstream bug report
+before G0JKN caught it. The cause was `tci-probe.sh` filtering `modulations_list` as
+noise, so the authoritative line was never on screen and the set got inferred. Query
+the list rather than trusting any written-down set — and make sure the tool is
+actually showing you the answer.
 
 **`trx_count` is dynamic**, but it counts RECEIVERS, not split. Enabling split
 leaves it at 1 — split uses VFO channel B of the same receiver (`channels_count:2`),
