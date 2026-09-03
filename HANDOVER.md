@@ -511,6 +511,10 @@ plugin files. The restore script refuses to run while it is up.
       form did not repopulate on reopen (Studio sends `add` on first open only), so it
       showed the HTML default and read as "did not save" when only the display was
       wrong — fixed with `getSettings()` on connect.
+      **`watch-ae-log.sh` was added in the same session** — reads AetherSDR's own log
+      to show what the *plugin* sent, the one question `tci-probe.sh` and
+      `tci-watch.sh` cannot answer (Studio swallows plugin stdout). It is what
+      verified all three fixes; filters MSHV's 1 Hz poll.
       **Backups taken before the swap and used to restore:**
       `backups/live-0.1.5-20260903-170828.tar.gz` (plugin) and
       `backups/live-profile-20260903-171129.tar.gz` (profile).
