@@ -498,9 +498,31 @@ plugin files. The restore script refuses to run while it is up.
       from `vu2cpl/aethersdr-ulanzi-plugin` branch `fix/persistence-mode-tune`, four
       commits on `909d90b`: inspector persistence, mode-cycle case compare, TUNE
       query-then-act (its own commit, as he asked), README roadmap.
-      **Not yet tested on our radio in that form** — this station runs the
-      0.1.5-based patched build, and the PR says so explicitly. If we do test it,
-      install the branch and give TUNE a real ATU cycle.
+      **Tested on the radio 2026-09-03** (D100H, Studio 3.2.11, AE on 21.270), then
+      the 0.1.5 patched build and the profile were restored. All three fixes verified:
+      mode cycle walks all seven modes (proving `am`/`fm` are real — see patch 4);
+      TUNE starts AND stops, rapid double-presses alternating at ~250 ms with AE
+      answering each query in ~20 ms so the 500 ms fallback never fired; inspector
+      settings persist and repopulate. Two further faults surfaced and are fixed in
+      the PR (`aaedb8a`): **`setSettings()` REPLACES the stored object**, so saving a
+      trimmed form deletes sibling keys — on this profile it wiped `step_hz`,
+      `coarse_mult` and `press_action` off the dial, exactly the 10x-coarser-dial
+      hazard `make-bundle.sh` guards against, restored from the backup below; and the
+      form did not repopulate on reopen (Studio sends `add` on first open only), so it
+      showed the HTML default and read as "did not save" when only the display was
+      wrong — fixed with `getSettings()` on connect.
+      **Backups taken before the swap and used to restore:**
+      `backups/live-0.1.5-20260903-170828.tar.gz` (plugin) and
+      `backups/live-profile-20260903-171129.tar.gz` (profile).
+      **Testing this build again costs three keys:** PTT, Split and Mute are our
+      local actions and do not exist upstream, so Studio shows "plugin missing" on
+      them. Bindings survive — but do NOT rearrange or re-save the profile in
+      Studio's UI while an upstream build is installed, or they will be dropped.
+      **Debugging an inspector:** the webview has no readable console. Have it beacon
+      each SDK event to a throwaway local HTTP server — that is what settled this, and
+      it disproved a confident wrong guess (Studio DOES supply `?uuid=`, so a bare
+      `$UD.connect()` does not throw; `connect()` is still required because `send()`
+      is guarded by `this.websocket &&`).
       Two things learned from him, server-side: AE broadcasts `tune_drive:` but
       **never** `tune:`, and `cmdVolume` reads a sent `0` as 0 dB = **FULL volume**
       (send -60 for silence). He tests on Windows with a D200H/D200X.
