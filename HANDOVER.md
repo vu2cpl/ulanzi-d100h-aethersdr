@@ -1,6 +1,6 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-07
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 
 ---
@@ -534,6 +534,44 @@ plugin files. The restore script refuses to run while it is up.
       into the TUNE commit, but there is no manifest action, no `case 'mute'` and no
       builder, only a dead `radio.muted` field. Flagged in the PR; our Mute (patch 13)
       is a local addition, not an upstream fix.
+- [x] **PR #4 approved and MERGED 2026-09-06, issue #3 closed.** G0JKN approved at
+      `aaedb8a` and merged a minute later. He did not read the claims, he tested them
+      — "because two of these can key a transmitter": he drove our TUNE state machine
+      through six cases with a stubbed `tciSend`, and went looking specifically for
+      the two that matter — an unsolicited `tune:true` with no press pending must send
+      **nothing**, and the 500 ms timeout must fail toward `tune:0,false`. Both hold.
+      His words for the direction of that fallback: stopping a tune nobody started
+      costs nothing, starting one nobody asked for is a keyed transmitter.
+      He conceded finding 4 publicly ("you were right and my issue was wrong") and
+      called checking the claim instead of implementing it the correct handling of a
+      wrong instruction from a maintainer. He rates `aaedb8a` — the `setSettings()`
+      data-loss merge — the best commit in the PR, and reproduced the loss on our own
+      settings shapes.
+      **What he did NOT verify, in his own words:** he has no D100H and never ran it
+      against a live AetherSDR or a real ATU. Everything upstream is our hardware
+      evidence (D100H, macOS, Studio 3.2.11) plus his stub runs. The TUNE path has
+      never been exercised against a real tuner on his side.
+      **One request left undone:** the PR body lists four commits, the branch has
+      five, so `aaedb8a` is invisible to anyone skimming the description. He asked —
+      non-blocking, after the fact — for a line in the body. Still unedited.
+- [x] **Write access on `nigelfenton/aethersdr-ulanzi-plugin` — accepted, live.**
+      Verified 2026-09-07: `gh api /repos/nigelfenton/aethersdr-ulanzi-plugin` reports
+      `push: true`, and the collaborator list is `nigelfenton` (admin), `vu2cpl`
+      (write). No invitation is pending.
+      **We are the practical maintainer of the D100H side.** He has no D100H and is
+      mid-house-move with poor review latency for the next few weeks; his instruction
+      is to use our own judgement on anything dial- or Studio-specific.
+      **Branch protection:** he says `main` now requires a PR — no direct pushes, no
+      force-push, no branch deletion — with **required approvals set to 0**, so we can
+      open a PR and merge it ourselves without waiting for him. Admins are not exempt.
+      This could NOT be confirmed from here: the protection endpoint 404s for a
+      non-admin token (which is what a non-admin sees whether or not protection
+      exists) and `/rules/branches/main` is empty, which only rules out rulesets, not
+      classic protection. **Assume the PR-only rule is real; do not push to `main`.**
+      **The one standing rule he asked for, and it is the right one:** anything that
+      keys the transmitter gets the TUNE treatment — query-then-act, fail safe toward
+      not transmitting, and say in the code *why*. That is the one class of bug in
+      this plugin that can do something worse than not work.
 - [ ] `vfo_swap` on knob press is guarded — it does nothing unless AetherSDR has
       reported a VFO B for the slice. Silent by design; may look broken. In practice
       the guard should never fire: the connect burst carries `vfo:<rx>,1` for every

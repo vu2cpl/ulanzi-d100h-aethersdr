@@ -56,11 +56,24 @@ The rest are genuine upstream bugs, and **they have been reported**, as
 - **Closed by G0JKN's v0.1.7 sync** — the TCI port default (patch 1, now with a
   `migrateTciUrl()` we never wrote) and the malformed `if:` slice command (patch 6,
   Slice Cycle removed outright).
-- **Fixed in our [PR #4](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/pull/4)** —
-  inspector persistence (patch 3), the mode-cycle case compare (patch 12) and TUNE
-  query-then-act (patch 7). Verified on the radio 2026-09-03, which turned up two more
-  faults that only appear once settings actually save: `setSettings()` replaces rather
-  than merges the stored object, and the form does not repopulate on reopen.
+- **Fixed in our [PR #4](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/pull/4)**,
+  approved and **merged 2026-09-06** — inspector persistence (patch 3), the mode-cycle
+  case compare (patch 12) and TUNE query-then-act (patch 7). Verified on the radio
+  2026-09-03, which turned up two more faults that only appear once settings actually
+  save: `setSettings()` replaces rather than merges the stored object, and the form
+  does not repopulate on reopen.
+
+**Issue #3 is closed — all five findings are on upstream `main`.** G0JKN re-checked
+findings 1 and 5 against `origin/main` rather than trusting the earlier note, and
+re-ran our TUNE state machine against stubbed `tciSend` before merging, because two
+of these fixes can key a transmitter. He has no D100H and did not run it against a
+live AetherSDR or ATU: **the hardware evidence in that PR is ours, not his.**
+
+Since 2026-09-06 this station has **write access to the upstream repo** and is the
+practical maintainer of the D100H side — G0JKN owns no D100H. `main` is PR-only but
+needs no approval, so fixes go in as our own PRs. His one standing request: anything
+that keys the transmitter gets the TUNE treatment — query-then-act, fail safe toward
+not transmitting, and say in the code *why*.
 
 One correction worth keeping visible: the original report claimed `CW`, `AM` and `FM`
 were not AetherSDR modes. They are — the wrong list came from `tci-probe.sh` filtering
