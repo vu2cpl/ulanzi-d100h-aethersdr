@@ -131,16 +131,40 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    button to every-other-press. **Verified working on the radio 2026-09-01.**
    (`rit_enable:` and `tune:` command formats were both probed and are correct.)
 
-8. **AF Gain / Mic Gain wrote zero on every press.** `cmdAfGain` sent
-   `volume:0,<v>;` and `cmdMicGain` sent `mic_level:0,<v>;`. Both verbs take **no**
-   receiver index (`volume:<value>`, `mic_level:<value>`), so AetherSDR read our
-   leading `0` as the value — every press set the level to **0**, whichever
-   direction it was pressed. Harmless only for as long as the plugin pointed at
-   port 40001 and nothing was listening; patch 1 made these presses live.
-   Now sent as `volume:<db>;` (percent→dB per #3502) and `mic_level:<percent>;`.
-   The parser's "asymmetric emit format" comment was also wrong and is corrected:
-   parameter count is fixed per verb, not varying by context. Found 2026-09-01
-   while tracing the TX-audio outage below; **not yet pressed on the radio.**
+8. **AF Gain / Mic Gain — the patch stands, its reasoning does not.**
+   `cmdAfGain` sent `volume:0,<v>;` and `cmdMicGain` sent `mic_level:0,<v>;`. This
+   was written up on 2026-09-01 as a defect: both verbs are non-indexed, so the
+   leading `0` was believed to be read as the value, zeroing the level on every
+   press. It now sends `volume:<db>;` (percent→dB per #3502) and
+   `mic_level:<percent>;`.
+   **Disproved on the radio 2026-09-07** — probed with `tci-probe.sh`, each step
+   from a different starting value so a rejected write could not hide as a
+   no-change:
+   ```
+   58  ->  mic_level:70;      ->  70     single-param form accepted
+   70  ->  mic_level:0,40;    ->  40     TWO-FIELD form ALSO accepted
+   40  ->  mic_level:58;      ->  58     restored
+   ```
+   AE **ignores a leading index and takes the last field**. Upstream's form was
+   correct; this was never a bug. The code is kept — the dB scale is worth having
+   on its own merits and the single-param form is the one verified here — but it
+   is **preference, not a fix**, and it was never reported upstream, which is the
+   one piece of luck in this. G0JKN was told on 2026-09-07 and asked not to spend
+   his move-week on it.
+   **Why it survived nine months:** both forms work, and "both forms work" reads
+   exactly like "my form works" unless you test the other one. The patch was
+   never wrong in effect, only in explanation, so nothing ever failed to flag it.
+   **The distinction to keep:** ONE field is the dangerous shape — `mic_level:0;`
+   really is a write of zero, and that is the trap that zeroed `tx_gain` and took
+   the station off the air for two days. A trailing index is harmless. Two facts,
+   not one; merging them is what produced the wrong claim.
+   **`volume:` is deliberately untested** the same way. Same verb shape, so the
+   same answer is expected — but if that inference is wrong the failure mode is
+   0 dB = FULL VOLUME into headphones. Test it at the radio with the monitor
+   down, or not at all.
+   The parser's "asymmetric emit format" comment was a separate matter and is
+   still corrected: parameter count is fixed per verb on the **emit** side. That
+   says nothing about what AE accepts.
 
 9. **The dial tuned the RX VFO under split.** `cmdSetFreq()` hardcoded the VFO
    channel — `vfo:<rx>,0,<hz>` — and `dialRotate()` stepped from `radio.frequency`,

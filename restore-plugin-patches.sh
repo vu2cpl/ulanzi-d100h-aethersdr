@@ -16,9 +16,9 @@
 #   6. mute:<rx>,<bool> receiver index; malformed `if:` slice command removed
 #   7. TUNE toggle state read from p[1], not the receiver index — it could
 #      start a tune cycle but never stop one (and tune keys the transmitter)
-#   8. AF/Mic Gain sent volume:0,<v> and mic_level:0,<v> to verbs that take no
-#      receiver index — the leading 0 was read as the value, so every press
-#      wrote 0.  Now volume:<db> and mic_level:<percent>
+#   8. AF/Mic Gain send volume:<db> and mic_level:<percent>.  NOT a bug fix —
+#      the original volume:0,<v> / mic_level:0,<v> also work (probed 2026-09-07:
+#      AE ignores a leading index, takes the last field).  Kept for the dB scale
 #   9. Dial tuned the RX VFO under split — cmdSetFreq() hardcoded channel 0.
 #      Split now steers the knob to VFO B (vfo:<rx>,1), and split_enable is
 #      parsed with the sliceIndex filter the other verbs already had

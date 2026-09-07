@@ -36,7 +36,7 @@ refuses to run while it is up. Restart Studio afterwards.
 | 5 | Band stacking, and band defaults moved off the band edges |
 | 6 | `mute:<rx>,<bool>` receiver index; removed the malformed `if:` slice command |
 | 7 | TUNE could start a tune cycle but never stop one — wrong parser index, and AetherSDR never broadcasts tune state, so it now queries before acting |
-| 8 | AF Gain / Mic Gain sent `volume:0,<v>;` and `mic_level:0,<v>;` to verbs that take **no** receiver index — AE read the index as the value, so every press wrote **0** |
+| 8 | AF Gain / Mic Gain send `volume:<db>;` and `mic_level:<percent>;`. **Not a defect fix** — the original `volume:0,<v>;` / `mic_level:0,<v>;` work too. Probed on the radio 2026-09-07: AE ignores a leading index and takes the last field, so the "index read as the value" reasoning this patch was written on was wrong. Kept for the dB scale (#3502), not as a correction of upstream |
 | 9 | Dial tuned the RX VFO under split — `cmdSetFreq()` hardcoded channel 0, so "split, then spin" moved RX and left TX put. Split now steers the knob to VFO B (`vfo:<rx>,1`) |
 | 10 | Split was a blind toggle on an unconfirmed mirror — one flip out of step and the dial drove the wrong VFO forever. Now query-then-act, like TUNE (patch 7) |
 | 11 | Split now parks the TX slice **1 kHz up on CW, 5 kHz on SSB**, and survives AetherSDR resetting VFO B to VFO A *twice* on enable |
@@ -45,8 +45,10 @@ refuses to run while it is up. Restart Studio afterwards.
 | 14 | Knob press is fast/slow tune step. It was VFO A/B swap, which under split trades RX and TX — the wrong thing to have under your thumb mid-pileup |
 | 15 | Dial snaps to the step grid. Tuning was a pure increment, so an off-grid VFO (band stack, panadapter click, RIT) kept its offset forever — 7.074123 walked …223, …323 and never reached a 100 Hz boundary. Also corrected the `vfo` tooltip, which still described pre-patch-9/14 behaviour |
 
-Patches 11, 14 and 15 are operator preference, not defects — patch 15's tooltip half
-describes *these* patches, so it has nothing to report upstream either. Patch 2 is not a
+Patches 8, 11, 14 and 15 are operator preference, not defects — patch 15's tooltip half
+describes *these* patches, so it has nothing to report upstream either. Patch 8 was
+written as a defect fix and demoted on 2026-09-07 when the radio disproved its
+reasoning; the code stays, the claim doesn't. Patch 2 is not a
 bug either: upstream documents `npm install` as an install step, and it only bit us
 because the plugin was installed by copying the folder.
 

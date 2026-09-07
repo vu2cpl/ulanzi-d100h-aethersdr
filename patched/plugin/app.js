@@ -216,6 +216,10 @@ function parseTci(msg) {
       //   - `mic_level:<value>;`    — NOT indexed, ONE param
       // The earlier "asymmetric emit format" note here was wrong; see the
       // single-param hazard warning above cmdAfGain().
+      // This is about what AE EMITS.  It says nothing about what AE ACCEPTS —
+      // on the command side a leading index is ignored rather than read as the
+      // value, which is the opposite of what the hazard block used to claim.
+      // Two directions, two different facts; do not merge them again.
       // #3502: AE echoes VOLUME in dB (−60..0). A positive value can only
       // come from a legacy percent-scale AE, so ≥1 = percent, ≤0 = dB.
       case 'volume': {
@@ -471,21 +475,46 @@ const clamp01_100 = (v) => Math.max(0, Math.min(100, v));
 // ─────────────────────────────────────────────────────────────────────────
 // SINGLE-PARAMETER VERB HAZARD — read before touching anything below.
 //
-// TCI verbs split into two shapes, and getting it wrong is DESTRUCTIVE, not
-// merely ineffective:
+// ONE field is the dangerous shape.  A trailing index is not.  These are two
+// separate facts and collapsing them into one rule is how this comment came
+// to be wrong for nine months:
 //
-//   receiver-indexed : `drive:<rx>,<value>;`   — `drive:0;` is a QUERY
-//   NOT indexed      : `volume:<value>;`       — `volume:0;` WRITES ZERO
-//                      `mic_level:<value>;`
+//   receiver-indexed : `drive:<rx>,<value>;`   — `drive:0;`     is a QUERY
+//   NOT indexed      : `volume:<value>;`       — `volume:0;`    WRITES ZERO
+//                      `mic_level:<value>;`    — `mic_level:0;` WRITES ZERO
 //
-// Sending the indexed form to a non-indexed verb makes AE read our receiver
-// index as the VALUE.  `mic_level:0,55;` does not set 55 — it sets **0**.
-// Every AF Gain / Mic Gain press used to do exactly that; harmless only
-// while the plugin was pointed at the wrong port and nothing was listening.
+// The live hazard is REAL and unchanged: on a non-indexed verb the bare
+// `verb:0;` form is a write of zero, not a query.  That is what took the
+// station off the air on 2026-09-01 — a verb sweep sent `verb:0;` to
+// everything as a "query" and silently zeroed `tx_gain`.  See HANDOVER.md
+// "Known gotchas".  Never probe with `verb:0;`; use bare `verb;`.
 //
-// This is the same trap that took the station off the air on 2026-09-01:
-// a verb sweep sent `verb:0;` to every verb as a "query", which silently
-// zeroed the non-indexed ones.  See HANDOVER.md "Known gotchas".
+// What this block USED to claim, and what is FALSE:
+//   "sending the indexed form to a non-indexed verb makes AE read the
+//    receiver index as the VALUE — `mic_level:0,55;` sets 0, not 55."
+//
+// Probed on the radio 2026-09-07, AetherSDR 26.9.1, each step started from a
+// different value so a rejected write could not hide as a no-change:
+//
+//   58  ->  `mic_level:70;`      ->  70    single-param form accepted
+//   70  ->  `mic_level:0,40;`    ->  40    TWO-FIELD FORM ALSO ACCEPTED
+//   40  ->  `mic_level:58;`      ->  58    restored
+//
+// AE takes the LAST field as the value and ignores a leading index on these
+// verbs.  Upstream's `volume:0,<v>;` / `mic_level:0,<v>;` were correct all
+// along, and the patch below is not the bug fix it was written as — both
+// forms work.  It survived because "both forms work" reads identically to
+// "my form works" unless you test the other one.
+//
+// The builders below are KEPT: for `volume` the dB scale is worth having on
+// its own merits (#3502 — AE echoes dB, −60..0), and for `mic_level` the
+// single-param form is the one actually verified on this radio.  They are
+// preference now, not a correction of upstream.
+//
+// `volume:` has NOT been A/B'd the same way.  Same verb shape, and mic_level
+// says the two-field form is fine, but if that inference is wrong the failure
+// mode is 0 dB = FULL VOLUME into headphones — so test it deliberately, at
+// the radio, with the monitor down, or not at all.
 // ─────────────────────────────────────────────────────────────────────────
 
 // TCI VOLUME wire scale is dB (−60..0; −60 = silence) per the spec / AetherSDR
@@ -498,8 +527,9 @@ const percentToDb = (pct) =>
 function cmdAfGain(direction) {
   const v = clamp01_100(radio.volume + direction * GAIN_STEP);
   radio.volume = v;
-  // Single-param verb: `volume:<db>;`.  #3502 — AE reads 0 as 0 dB = FULL
-  // volume, so silence at the bottom of the dial must be −60 dB, not 0.
+  // #3502 — AE reads a VALUE of 0 as 0 dB = FULL volume, so silence at the
+  // bottom of the dial must be −60 dB, not 0.  (That is about the value, not
+  // about the leading index — see the hazard block above.)
   return `volume:${percentToDb(v)};`;
 }
 function cmdRfGain(direction) {
@@ -511,7 +541,8 @@ function cmdRfGain(direction) {
 function cmdMicGain(direction) {
   const v = clamp01_100(radio.micLevel + direction * GAIN_STEP);
   radio.micLevel = v;
-  // Single-param verb: `mic_level:<percent>;` — NO receiver index.
+  // `mic_level:<percent>;` — the single-param form, verified on the radio.
+  // `mic_level:0,<percent>;` works too; this is not a fix, just the tested one.
   return `mic_level:${v};`;
 }
 

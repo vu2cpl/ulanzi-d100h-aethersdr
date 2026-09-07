@@ -25,6 +25,15 @@ import('ws').then(({default:WebSocket})=>{
 > file recommended it; it was how the damage was done. See HANDOVER.md
 > "Known gotchas".
 
+> **The converse is NOT true, and this file used to imply it was.** Sending a
+> receiver index to a non-indexed verb is harmless: probed 2026-09-07 on AE
+> 26.9.1, `mic_level:0,40;` sets **40**, not 0 — AE takes the last field and
+> ignores the leading index. So the `⚠️ not indexed` marks below mean "a bare
+> `verb:0;` writes zero here", **not** "an index will be eaten as the value".
+> One field is the hazard; a trailing index is not. `volume:` is untested this
+> way on purpose — the failure mode if that inference is wrong is 0 dB = full
+> volume into headphones.
+
 The D100H has **7 buttons + 1 knob**, so this is a menu to choose ~7 from, not a
 list to implement wholesale. More capacity comes from extra Studio pages.
 
