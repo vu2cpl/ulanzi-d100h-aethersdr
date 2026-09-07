@@ -551,9 +551,12 @@ plugin files. The restore script refuses to run while it is up.
       against a live AetherSDR or a real ATU. Everything upstream is our hardware
       evidence (D100H, macOS, Studio 3.2.11) plus his stub runs. The TUNE path has
       never been exercised against a real tuner on his side.
-      **One request left undone:** the PR body lists four commits, the branch has
-      five, so `aaedb8a` is invisible to anyone skimming the description. He asked —
-      non-blocking, after the fact — for a line in the body. Still unedited.
+      **His one request is done (2026-09-07):** the body listed four commits and the
+      branch has five, so `aaedb8a` was invisible to anyone skimming. The commit table
+      now has a fifth row plus a short paragraph saying it is the data-loss fix and
+      why it could not have existed before the persistence commit. Editing a merged
+      PR body changes nothing that ships — it changes what the next reader sees, which
+      was the whole point of the request.
 - [x] **Write access on `nigelfenton/aethersdr-ulanzi-plugin` — accepted, live.**
       Verified 2026-09-07: `gh api /repos/nigelfenton/aethersdr-ulanzi-plugin` reports
       `push: true`, and the collaborator list is `nigelfenton` (admin), `vu2cpl`
