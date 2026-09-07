@@ -4,7 +4,8 @@ Local patches that make a **Ulanzi D100H** dial controller drive
 **AetherSDR** over its TCI WebSocket, via Ulanzi Studio.
 
 The controller integration itself is
-**[AetherSDR Controller](https://github.com/) by Nigel Fenton (G0JKN)** — a
+**[AetherSDR Controller](https://github.com/nigelfenton/aethersdr-ulanzi-plugin)
+by Nigel Fenton (G0JKN)** — a
 Ulanzi Studio plugin that translates button and dial events into TCI commands.
 This repo contains only the local fixes needed to make it work here, plus a
 script to re-apply them after a plugin update.
