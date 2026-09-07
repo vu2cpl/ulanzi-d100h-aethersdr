@@ -31,8 +31,9 @@ import('ws').then(({default:WebSocket})=>{
 > ignores the leading index. So the `⚠️ not indexed` marks below mean "a bare
 > `verb:0;` writes zero here", **not** "an index will be eaten as the value".
 > One field is the hazard; a trailing index is not. `volume:` is untested this
-> way on purpose — the failure mode if that inference is wrong is 0 dB = full
-> volume into headphones.
+> way on purpose and does not need to be: AF Gain is not bound on this profile,
+> so nothing here ever sends `volume:`. Probe it before binding AF Gain to a
+> key — if the inference is wrong, 0 dB is full volume into headphones.
 
 The D100H has **7 buttons + 1 knob**, so this is a menu to choose ~7 from, not a
 list to implement wholesale. More capacity comes from extra Studio pages.

@@ -511,10 +511,15 @@ const clamp01_100 = (v) => Math.max(0, Math.min(100, v));
 // single-param form is the one actually verified on this radio.  They are
 // preference now, not a correction of upstream.
 //
-// `volume:` has NOT been A/B'd the same way.  Same verb shape, and mic_level
-// says the two-field form is fine, but if that inference is wrong the failure
-// mode is 0 dB = FULL VOLUME into headphones — so test it deliberately, at
-// the radio, with the monitor down, or not at all.
+// `volume:` has NOT been A/B'd the same way, and on this station it does not
+// matter: AF Gain and Mic Gain are not bound in the profile (all 7 buttons and
+// the knob are taken by vfo/tune/split/ptt/mute/mode/band±), so cmdAfGain is
+// unreachable and `volume:` never leaves this plugin.  Neither the upstream
+// form nor this patch has ever executed here.
+// It becomes a live question ONLY if AF Gain is bound to a key.  If you do
+// that, test the verb first — same shape as mic_level so the same answer is
+// expected, but if that inference is wrong the failure mode is 0 dB = FULL
+// VOLUME into headphones.  At the radio, monitor down, or not at all.
 // ─────────────────────────────────────────────────────────────────────────
 
 // TCI VOLUME wire scale is dB (−60..0; −60 = silence) per the spec / AetherSDR

@@ -158,10 +158,17 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
    really is a write of zero, and that is the trap that zeroed `tx_gain` and took
    the station off the air for two days. A trailing index is harmless. Two facts,
    not one; merging them is what produced the wrong claim.
-   **`volume:` is deliberately untested** the same way. Same verb shape, so the
-   same answer is expected — but if that inference is wrong the failure mode is
-   0 dB = FULL VOLUME into headphones. Test it at the radio with the monitor
-   down, or not at all.
+   **None of this can fire on this station.** AF Gain and Mic Gain are **not bound**
+   in the profile — all 7 buttons and the knob are taken by `vfo`, `tune`,
+   `splitToggle`, `pttMomentary`, `muteToggle`, `modeCycle`, `bandUp`, `bandDown`
+   — and our 0.1.5-based build has no connect-time gain seeding (that arrived in
+   0.1.7, and uses the safe bare-verb form). `cmdAfGain` is the only sender of
+   `volume:` and nothing reaches it, so neither the upstream form nor this patch
+   has ever executed here. Patch 8 is dead code, and so was the defect it claimed.
+   **`volume:` is therefore deliberately untested**, and only becomes a live
+   question if AF Gain is ever bound to a key. If you bind it, probe the verb
+   first: same shape as `mic_level` so the same answer is expected, but if that
+   inference is wrong the failure mode is 0 dB = FULL VOLUME into headphones.
    The parser's "asymmetric emit format" comment was a separate matter and is
    still corrected: parameter count is fixed per verb on the **emit** side. That
    says nothing about what AE accepts.
