@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────
+// MODIFIED FILE — Apache-2.0 section 4(b) notice.
+//
+// Original: AetherSDR Controller v0.1.5, Copyright (c) Nigel Fenton (G0JKN),
+//           https://github.com/nigelfenton/aethersdr-ulanzi-plugin
+//           Licensed under the Apache License, Version 2.0.
+//
+// Changed by Manoj Kumar R (VU2CPL) for the Ulanzi D100H. The unmodified
+// original of this file is kept alongside it at upstream-original/ for
+// diffing. See README.md for the patch list and NOTICE for attribution.
+// ─────────────────────────────────────────────────────────────────────────
+
 // AetherSDR Controller — Ulanzi Studio plugin
 //
 // Bridges Ulanzi Studio (which manages the D100H dial / LCD button device

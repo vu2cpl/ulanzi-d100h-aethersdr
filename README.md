@@ -188,3 +188,27 @@ the only way to see whether a press reaches the plugin.
 
 See [HANDOVER.md](HANDOVER.md) for the rest, including AetherSDR's verified TCI
 limits (no slice switching, no antenna control).
+
+## Licence and attribution
+
+The plugin is **Nigel Fenton (G0JKN)'s** work, licensed **Apache-2.0**:
+[nigelfenton/aethersdr-ulanzi-plugin](https://github.com/nigelfenton/aethersdr-ulanzi-plugin).
+This repository redistributes it — unmodified in `upstream-original/`, modified in
+`patched/` and inside the install bundle — under that same licence, which is
+included as [LICENSE](LICENSE). Modified files carry an in-file notice per
+Apache-2.0 §4(b); [NOTICE](NOTICE) lists exactly which files are changed and which
+are pristine.
+
+The local patches, probe scripts and tooling are by **Manoj Kumar R (VU2CPL)** and
+are offered under the same licence. Several of these patches are now upstream —
+merged in
+[nigelfenton/aethersdr-ulanzi-plugin#4](https://github.com/nigelfenton/aethersdr-ulanzi-plugin/pull/4);
+the rest are local preference and were deliberately not offered. The patch table
+above says which is which.
+
+**If you want the plugin, get it from
+[upstream](https://github.com/nigelfenton/aethersdr-ulanzi-plugin)** — that is
+Nigel's to distribute, it is maintained, and most of what was broken for the D100H
+is now fixed there. This repo is useful to you only if you have a D100H and want
+the remaining local behaviour (split handling, mute-all-slices, PTT, grid-snap
+tuning) that upstream does not carry.

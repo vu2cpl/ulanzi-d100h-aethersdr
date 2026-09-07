@@ -1,6 +1,7 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
 **Last updated:** 2026-09-07
+**Licence:** Apache-2.0 (see LICENSE / NOTICE) — the plugin is G0JKN's work
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 
 ---
@@ -405,6 +406,24 @@ plugin files. The restore script refuses to run while it is up.
 ---
 
 ## Open items
+
+- [x] **Repo published 2026-09-07**, with the Apache-2.0 obligations met first:
+      `LICENSE` (upstream's own Apache-2.0 text), `NOTICE` naming G0JKN and listing
+      which files are pristine and which are modified, in-file §4(b) notices on the
+      three modified text files, and a README licence section pointing anyone who
+      just wants the plugin at upstream rather than here.
+      `patched/manifest.json` deliberately carries **no** in-file notice — Ulanzi
+      Studio parses it and an unknown comment key risks breaking the plugin, so its
+      modification is recorded in NOTICE instead.
+      `upstream-original/` deliberately carries none either: those files are
+      unmodified, and a "this file was changed" header on them would be false.
+      **`make-bundle.sh` will refuse its next run** — patched/ now differs from the
+      installed plugin by exactly these notices. Run `./restore-plugin-patches.sh`
+      with Studio quit first. The guard is working as designed; this is written
+      down so it is not mistaken for drift. The shipped
+      `d100h-aethersdr-macbook.zip` predates the notices and should be rebuilt at
+      the same time — the script now copies LICENSE and NOTICE into the bundle, so
+      the licence travels with a copy handed to another Mac.
 
 - [x] **Slice switching dropped — operator's call, 2026-09-02. Do not re-propose it.**
       Not worth having on this hardware with this software, in either available form, and

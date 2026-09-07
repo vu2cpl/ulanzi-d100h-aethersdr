@@ -1,0 +1,42 @@
+Ulanzi D100H → AetherSDR
+========================
+
+This repository redistributes and modifies:
+
+    AetherSDR Controller — a Ulanzi Studio plugin
+    Copyright (c) Nigel Fenton (G0JKN)
+    https://github.com/nigelfenton/aethersdr-ulanzi-plugin
+    Licensed under the Apache License, Version 2.0
+
+The plugin is Nigel Fenton's work. Everything in this repository that is
+not his is a set of local patches to it, plus probe/deploy tooling, by
+Manoj Kumar R (VU2CPL). All of it is offered under the same Apache-2.0
+licence — see LICENSE.
+
+Redistributed UNMODIFIED (pristine upstream v0.1.5, kept for diffing):
+
+    upstream-original/README.md
+    upstream-original/manifest.json
+    upstream-original/plugin/app.js
+    upstream-original/property-inspector/keypad/inspector.html
+    upstream-original/property-inspector/vfo/inspector.html
+
+Redistributed MODIFIED, per Apache-2.0 section 4(b):
+
+    patched/plugin/app.js
+    patched/property-inspector/vfo/inspector.html
+    patched/property-inspector/keypad/inspector.html
+    patched/manifest.json
+    d100h-aethersdr-macbook.zip   (a built bundle containing the above)
+
+Those files carry the fifteen local patches listed in README.md. The three
+text files above carry an in-file modification notice; manifest.json does
+not, because it is parsed by Ulanzi Studio and a comment key risks breaking
+it — its modification is recorded here and in README.md instead.
+
+Some of these patches were contributed back and are now upstream, merged in
+nigelfenton/aethersdr-ulanzi-plugin#4. Others are local preference and were
+deliberately not offered. README.md says which is which, patch by patch.
+
+The bundled `ws` dependency inside d100h-aethersdr-macbook.zip is MIT
+licensed and carries its own LICENSE file within the archive.

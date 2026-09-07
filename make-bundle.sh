@@ -13,6 +13,13 @@
 # (libs/, assets/, en.json, package.json) is G0JKN's and is deliberately not
 # vendored into this repo. The script refuses to build unless the installed
 # copy matches patched/ exactly, so a stale or reverted install can't ship.
+#
+# NOTE (2026-09-07): patched/ gained Apache-2.0 section 4(b) modification
+# notices when this repo was published, and the installed plugin has not. The
+# cmp guard below will therefore refuse to build until you run
+# ./restore-plugin-patches.sh (Studio quit) to push the annotated files out to
+# the install. That is the guard doing its job, not a bug — but it is expected
+# on the first build after publication, so it is written down here.
 
 set -euo pipefail
 
@@ -71,6 +78,12 @@ rsync -a --exclude '.DS_Store' "$HERE/profile/"*.ulanziProfile "$OUT/"
 cp "$HERE/INSTALL.md" "$OUT/"
 cp "$HERE/tci-probe.sh" "$OUT/"          # safe TCI probe — see INSTALL.md troubleshooting
 cp "$HERE/tci-watch.sh" "$OUT/"          # read-only broadcast-vs-query watcher
+# The bundle redistributes G0JKN's Apache-2.0 plugin, in modified form, to a
+# machine that may never see this repo. Section 4(a) wants the licence to
+# travel with it, and 4(d) the attribution — so they go in the zip, not just
+# in the repo root.
+cp "$HERE/LICENSE" "$OUT/"
+cp "$HERE/NOTICE" "$OUT/"
 
 ZIP="$OUT.zip"; rm -f "$ZIP"
 ( cd "$(dirname "$OUT")" && zip -qr "$(basename "$ZIP")" "$(basename "$OUT")" -x "*.DS_Store" )
