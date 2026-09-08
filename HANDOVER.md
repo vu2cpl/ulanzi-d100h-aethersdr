@@ -3,6 +3,11 @@
 **Last updated:** 2026-09-08
 **Licence:** Apache-2.0 (see LICENSE / NOTICE) — the plugin is G0JKN's work
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
+**Last verified on the radio:** 2026-09-08, after the bundle rebuild — dial tuning
+(`vfo:0,0,…` walking 7138→7126 kHz, every write on the 1 kHz grid), mode cycle
+(cw→usb→digu→lsb), TUNE query-then-act both ways, band change with mode following,
+mute, PTT, and split parking VFO B 5 kHz up on SSB — all confirmed in AetherSDR's
+own log via `./watch-ae-log.sh`, not merely on the wire.
 
 ---
 
@@ -635,8 +640,30 @@ plugin files. The restore script refuses to run while it is up.
 ## Deploying to another Mac
 
 `./make-bundle.sh` produces a self-contained zip (patched plugin including
-`node_modules`, the profile from `profile/`, and INSTALL.md). It refuses to build
-unless the installed plugin matches `patched/`, so a reverted install cannot ship.
+`node_modules`, the profile from `profile/`, INSTALL.md and `install.sh`). It
+refuses to build unless the installed plugin matches `patched/`, so a reverted
+install cannot ship.
+
+**`install.sh` runs on the TARGET Mac, from inside the unzipped bundle** — added
+2026-09-08. It does INSTALL.md steps 1-2 and the step-5 verification: quits Studio
+(prompting, `--yes` to skip), copies plugin + profile, then checks `node_modules/ws`
+is present, `app.js` parses, all 21 manifest actions are handled by the source,
+port 50001 is in `app.js`, AetherSDR is listening, and the dial is on Bluetooth.
+`--check` reports and changes nothing. Two deliberate choices: it **moves** any
+existing install into a timestamped `replaced-*` folder rather than deleting it,
+because per-action settings (`step_hz`, `coarse_mult`, `press_action`, `tci_url`)
+live in the profile and a previous install may hold values that exist nowhere
+else; and a missing `node_modules/ws` is treated as a **broken bundle and a hard
+error**, not a step to run — the bundle exists precisely so the target needs no
+npm, so its absence means the download or the unzip lost files.
+
+Steps 3 (starting AetherSDR's TCI server) and 4 (selecting the profile) stay
+manual: both are GUI work inside apps the script cannot drive.
+
+**No Raspberry Pi branch, and that is not an oversight.** The shack rule is that
+install scripts branch macOS vs Pi; here there is no Pi to branch to — Ulanzi
+Studio ships no Linux or ARM build at all. `install.sh` detects a non-Darwin host
+and stops with that reason rather than implying a path that does not exist.
 
 `profile/` is the operator layout — 7 buttons + knob, 8 assignments. It binds to
 the D100H by device UUID `4250315A3538380201E26E435603F278`, which comes from the
@@ -670,6 +697,44 @@ was offered and declined 2026-09-02 — do not re-propose it**; quitting Studio 
 is the standing workaround, and the operator's call is that a two-line check is not
 worth another plugin-adjacent edit. Recorded here because the gap is written down
 right above it, and a future session would otherwise read it as an obvious to-do.
+
+## Windows — asked 2026-09-08, unverified
+
+The operator asked whether this can be used on Windows. Nobody here has tried it;
+what follows is research plus reasoning, and is written down so the next session
+starts from it rather than re-deriving it.
+
+**Both halves of the stack do ship for Windows.** Ulanzi Studio has a Windows 10+
+build, and AetherSDR ships a Windows installer, a portable ZIP and a Microsoft
+Store listing next to the macOS DMG. AetherSDR also ships a Linux AppImage — but
+Studio has **no** Linux build, so Linux is out at the Studio end whatever
+AetherSDR does.
+
+**The plugin has nothing macOS-specific in it.** It is JavaScript on the Node
+runtime Studio itself ships, and it reaches AetherSDR over a localhost WebSocket
+(`ws://127.0.0.1:50001`). No Mac API, no native module; `ws` under `--omit=dev`
+is pure JavaScript. So the fifteen patches are not the obstacle.
+
+**The tooling is the obstacle**, all of it:
+
+- `install.sh`, `tci-probe.sh`, `tci-watch.sh`, `watch-ae-log.sh` — bash, plus
+  `osascript`, `lsof`, `ioreg`, `pgrep -f "Ulanzi Studio.app/..."`. Git Bash
+  supplies the shell and none of the tools. PowerShell rewrites, or nothing.
+- Install paths. This repo hardcodes the macOS
+  `~/Library/Application Support/Ulanzi/UlanziDeck/{Plugins,ProfilesV2}`
+  everywhere. The `%APPDATA%` equivalent has **not** been confirmed against a
+  real Windows Studio install — do not write it into docs from memory.
+- `watch-ae-log.sh` reads AetherSDR's macOS log directory.
+- `restore-plugin-patches.sh` and `make-bundle.sh` are macOS-only for the same
+  reasons, so the whole maintenance loop would need porting, not just the install.
+- The profile binds the D100H by the device UUID the dial supplies, so it *should*
+  follow the same dial onto another OS. Unverified.
+
+Verdict as it stands: **plausible for the plugin, unported for everything else,
+and untested end to end.** INSTALL.md carries a shortened version of this for
+whoever holds the bundle. If it is ever tried, the first datum worth having is
+whether a plugin process appears in Studio's process list on Windows — that alone
+separates "the plugin runs" from "the paths are wrong".
 
 ## Diffing against upstream
 

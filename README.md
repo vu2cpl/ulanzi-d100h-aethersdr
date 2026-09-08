@@ -101,6 +101,7 @@ watch-ae-log.sh              what the PLUGIN actually sent, from AE's own log (r
 backups/                     what was overwritten, timestamped (created on first run)
 d100h-aethersdr-macbook.zip  the built bundle, committed for download on the target Mac
 INSTALL.md                   installing on another Mac
+install.sh                   run it on the TARGET Mac — installs from the bundle
 make-bundle.sh               build the self-contained install zip
 HANDOVER.md                  full story, gotchas, open items
 TCI-ACTIONS.md               all 51 assignable actions, probe-verified
@@ -109,7 +110,20 @@ TCI-ACTIONS.md               all 51 assignable actions, probe-verified
 ## Installing on another Mac
 
 The built bundle is committed as `d100h-aethersdr-macbook.zip`, so the target Mac
-can download it straight from this repo. To rebuild it after a patch:
+can download it straight from this repo. Unzip it there and run:
+
+```bash
+cd ~/Downloads/d100h-aethersdr-macbook && ./install.sh
+```
+
+`install.sh` quits Studio (asking first), moves any existing install aside rather
+than deleting it, copies the plugin and profile in, then verifies: `node_modules/ws`
+present, `app.js` parses, all 21 actions handled, TCI port 50001 in the source,
+AetherSDR listening, and the dial paired. `--check` reports without changing
+anything. Starting Studio and picking the profile stays manual — see
+[INSTALL.md](INSTALL.md).
+
+To rebuild the bundle after a patch:
 
 ```bash
 ./make-bundle.sh            # -> ~/Downloads/d100h-aethersdr-macbook.zip

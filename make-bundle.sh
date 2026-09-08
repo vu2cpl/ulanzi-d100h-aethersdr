@@ -5,7 +5,7 @@
 #   - the patched plugin, with node_modules bundled (target Mac needs no npm;
 #     Ulanzi Studio ships its own Node runtime)
 #   - the D100H profile from profile/
-#   - INSTALL.md
+#   - INSTALL.md and install.sh (the script does steps 1-2 and the step-5 checks)
 #   - tci-probe.sh and tci-watch.sh
 #
 # The plugin is assembled from the INSTALLED copy rather than from patched/,
@@ -76,6 +76,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 rsync -a --exclude '.DS_Store' "$PLUGIN" "$OUT/"
 rsync -a --exclude '.DS_Store' "$HERE/profile/"*.ulanziProfile "$OUT/"
 cp "$HERE/INSTALL.md" "$OUT/"
+cp "$HERE/install.sh" "$OUT/"            # automates INSTALL.md steps 1-2 + step 5 checks
 cp "$HERE/tci-probe.sh" "$OUT/"          # safe TCI probe — see INSTALL.md troubleshooting
 cp "$HERE/tci-watch.sh" "$OUT/"          # read-only broadcast-vs-query watcher
 # The bundle redistributes G0JKN's Apache-2.0 plugin, in modified form, to a

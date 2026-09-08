@@ -13,16 +13,38 @@ patches applied — the stock plugin does not work against AetherSDR as shipped.
 - **D100H paired** to the MacBook over Bluetooth. Pair it first — Studio needs to
   register the device before the profile will bind to it.
 
-## 1. Quit Ulanzi Studio
+## 1-2. Run the installer
 
-Not just close the window — **Cmd-Q**. Studio rewrites plugin and profile state
-on exit and will overwrite anything you copy in while it's running.
+```bash
+cd ~/Downloads/d100h-aethersdr-macbook
+./install.sh
+```
+
+It quits Ulanzi Studio (asking first), copies the plugin and the profile into
+place, and verifies the result. Anything already installed is **moved aside**
+into a timestamped `replaced-*` folder beside the script, never deleted — a
+previous install can hold per-action settings that exist nowhere else.
+
+```bash
+./install.sh --check     # report what is installed; change nothing
+./install.sh --yes       # no prompts (quits Studio without asking)
+```
+
+Then carry on at step 3. The two sections below are what the script does, kept
+for when you would rather do it by hand.
+
+<details>
+<summary>Manual equivalent</summary>
+
+**Quit Ulanzi Studio.** Not just close the window — **Cmd-Q**. Studio rewrites
+plugin and profile state on exit and will overwrite anything you copy in while
+it's running.
 
 ```bash
 osascript -e 'quit app "Ulanzi Studio"'
 ```
 
-## 2. Copy the plugin and the profile
+**Copy the plugin and the profile.**
 
 ```bash
 UD="$HOME/Library/Application Support/Ulanzi/UlanziDeck"
@@ -32,6 +54,8 @@ mkdir -p "$UD/Plugins" "$UD/ProfilesV2"
 cp -R "$B/com.g0jkn.aethersdr.ulanziPlugin"                   "$UD/Plugins/"
 cp -R "$B/3e14ea8f-bb5d-408e-93ae-1640754bffd3.ulanziProfile" "$UD/ProfilesV2/"
 ```
+
+</details>
 
 ## 3. Check AetherSDR's TCI server
 
@@ -127,6 +151,40 @@ is the inspector calling `sendParamFromPlugin()` instead of `setSettings()`.
 **Don't enable AetherSDR's own "Ulanzi Dial" HID option.** It fights Studio for
 the dial and leaks keystrokes into whatever app has focus. Leave it off; this
 plugin uses TCI instead.
+
+## Windows and Linux
+
+**Untested — nobody here has run it off macOS. What follows is what is known,
+not a claim that it works.**
+
+Both halves of the stack do exist on other platforms: Ulanzi Studio ships a
+Windows 10+ build, and AetherSDR ships a Windows installer and a Linux AppImage
+alongside the macOS DMG. Studio has no Linux build, so Linux is out at the Studio
+end regardless of AetherSDR.
+
+The plugin itself has nothing macOS-specific in it. It is JavaScript on the Node
+runtime Studio ships, and it reaches AetherSDR over a **localhost WebSocket**
+(`ws://127.0.0.1:50001`) — no Mac API, no native module. Its one dependency, `ws`,
+is pure JavaScript with `--omit=dev`. So on Windows it has a fair chance of
+working once the files are in the right place.
+
+What is definitely **not** portable is the tooling around it:
+
+- `install.sh`, `tci-probe.sh`, `tci-watch.sh`, `watch-ae-log.sh` are bash, and
+  use `osascript`, `lsof`, `ioreg` and macOS paths throughout. On Windows they
+  would need PowerShell rewrites; Git Bash gets you the shell but not those tools.
+- The install locations differ. This bundle's paths are the macOS ones
+  (`~/Library/Application Support/Ulanzi/UlanziDeck/{Plugins,ProfilesV2}`); the
+  Windows equivalent under `%APPDATA%` has not been confirmed against a real
+  install.
+- AetherSDR's log directory, which `watch-ae-log.sh` reads, is a macOS path.
+- The profile binds the D100H by the device UUID the dial itself supplies, so it
+  *should* carry across to the same dial on another OS — unverified.
+
+If you try it, the honest starting point is: copy the plugin folder and the
+profile folder into Studio's Windows equivalents by hand, start Studio, and see
+whether a plugin process appears. Report back and this section can stop being
+guesswork.
 
 ## Keeping it working
 
