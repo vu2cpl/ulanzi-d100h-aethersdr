@@ -698,43 +698,104 @@ is the standing workaround, and the operator's call is that a two-line check is 
 worth another plugin-adjacent edit. Recorded here because the gap is written down
 right above it, and a future session would otherwise read it as an obvious to-do.
 
-## Windows — asked 2026-09-08, unverified
+## Windows — ported 2026-09-08, never run on Windows
 
-The operator asked whether this can be used on Windows. Nobody here has tried it;
-what follows is research plus reasoning, and is written down so the next session
-starts from it rather than re-deriving it.
+The operator asked whether this can be used on Windows, then asked for the full
+port including diagnostics. `windows/` now holds `install.ps1`, `tci-probe.ps1`,
+`tci-watch.ps1`, `watch-ae-log.ps1` and a README. **There is no Windows machine
+here**, so none of it has run on the platform it targets — but it is not
+unverified either, and the distinction is worth keeping straight:
 
-**Both halves of the stack do ship for Windows.** Ulanzi Studio has a Windows 10+
-build, and AetherSDR ships a Windows installer, a portable ZIP and a Microsoft
-Store listing next to the macOS DMG. AetherSDR also ships a Linux AppImage — but
-Studio has **no** Linux build, so Linux is out at the Studio end whatever
-AetherSDR does.
+- all four **parse** under PowerShell 7.6 (installed on this Mac for the purpose);
+- `install.ps1` was **run** under `pwsh` on macOS against a scratch `%APPDATA%` —
+  fresh install, re-install exercising the move-aside backup, the
+  manifest-vs-source verification, and `-Check`;
+- `tci-probe.ps1`'s wrapper was **run**: ws located, node located, temp `.mjs`
+  written, embedded program executed to its own error handler;
+- `watch-ae-log.ps1` was **run against a synthetic AE log and produced output
+  byte-identical to `watch-ae-log.sh`** on the same input.
 
-**The plugin has nothing macOS-specific in it.** It is JavaScript on the Node
-runtime Studio itself ships, and it reaches AetherSDR over a localhost WebSocket
-(`ws://127.0.0.1:50001`). No Mac API, no native module; `ws` under `--omit=dev`
-is pure JavaScript. So the fifteen patches are not the obstacle.
+What remains untested is everything only Windows can answer: whether Studio finds
+the plugin at these paths, whether the profile binds to the dial, where Studio's
+bundled Node lives, and whether the D100H works at the far end.
 
-**The tooling is the obstacle**, all of it:
+**The macOS run already paid for itself.** `install.ps1` called
+`Get-NetTCPConnection`, which is Windows-only, and with `$ErrorActionPreference =
+'Stop'` a missing cmdlet is a *terminating* error — so the script installed
+everything correctly, printed every verification, then died red before reaching
+"Done", at a purely informational step. On Windows the cmdlet usually exists, so
+this would have lain hidden until it met a machine without the NetTCPIP module,
+where it would have looked like a failed install that had actually succeeded. Now
+guarded with `Get-Command`, with a `netstat` fallback. Run a port anywhere you
+can, even on the wrong OS.
 
-- `install.sh`, `tci-probe.sh`, `tci-watch.sh`, `watch-ae-log.sh` — bash, plus
-  `osascript`, `lsof`, `ioreg`, `pgrep -f "Ulanzi Studio.app/..."`. Git Bash
-  supplies the shell and none of the tools. PowerShell rewrites, or nothing.
-- Install paths. This repo hardcodes the macOS
-  `~/Library/Application Support/Ulanzi/UlanziDeck/{Plugins,ProfilesV2}`
-  everywhere. The `%APPDATA%` equivalent has **not** been confirmed against a
-  real Windows Studio install — do not write it into docs from memory.
-- `watch-ae-log.sh` reads AetherSDR's macOS log directory.
-- `restore-plugin-patches.sh` and `make-bundle.sh` are macOS-only for the same
-  reasons, so the whole maintenance loop would need porting, not just the install.
-- The profile binds the D100H by the device UUID the dial supplies, so it *should*
-  follow the same dial onto another OS. Unverified.
+**Both halves ship for Windows.** Ulanzi Studio has a Windows 10+ build,
+AetherSDR a Windows installer plus a Microsoft Store listing. AetherSDR also
+ships a Linux AppImage, but Studio has **no** Linux build, so Linux is out at the
+Studio end whatever AetherSDR does. The plugin itself is portable in principle:
+JavaScript on the Node runtime Studio ships, over a localhost WebSocket, no Mac
+API, no native module, `ws` pure JS under `--omit=dev`.
 
-Verdict as it stands: **plausible for the plugin, unported for everything else,
-and untested end to end.** INSTALL.md carries a shortened version of this for
-whoever holds the bundle. If it is ever tried, the first datum worth having is
-whether a plugin process appears in Studio's process list on Windows — that alone
-separates "the plugin runs" from "the paths are wrong".
+### Paths — what is confirmed and what is not
+
+Chased to primary sources rather than guessed, because a guessed path in an
+install doc looks like knowledge:
+
+- **`%APPDATA%\Ulanzi\UlanziDeck\Plugins`** — CONFIRMED against a shipped
+  third-party UlanziDeck plugin (github.com/narlei/ulanzideck_claude), which
+  documents that exact path. Same doc confirms end users need no Node.js,
+  i.e. Studio bundles its own v20 as on macOS.
+- **`%LOCALAPPDATA%\AetherSDR\logs`** — CONFIRMED from AetherSDR's own source.
+  `src/core/LogManager.cpp` builds the log path as
+  `QStandardPaths::GenericConfigLocation + "/AetherSDR/logs/aethersdr.log"` with
+  rotated `aethersdr-*.log` beside it; `src/core/SettingsPaths.h` documents
+  `GenericConfigLocation` as `%LOCALAPPDATA%/AetherSDR` on Windows.
+- **`%APPDATA%\Ulanzi\UlanziDeck\ProfilesV2`** — INFERRED from the macOS
+  layout (ProfilesV2 is a sibling of Plugins). Never seen on Windows. This is
+  the half carrying `step_hz`, `press_action` and split behaviour, so a wrong
+  path loses the operating settings and not merely the layout. **First suspect
+  if the profile does not appear in Studio.**
+- **Studio's process name, and where its bundled Node lives** — UNKNOWN. The
+  installer matches any process containing "Ulanzi" and reports what it found;
+  the diagnostics prefer a system `node` and then hunt for `node.exe` under the
+  Ulanzi install dirs.
+
+### The verbatim-JavaScript decision, and the guard that enforces it
+
+`tci-probe.ps1` and `tci-watch.ps1` embed the macOS JavaScript **byte for byte**
+between `---8<---` markers; only the shell wrapper is new. The tidier design is a
+shared `.mjs` both platforms call — rejected, on purpose: AetherSDR was not
+running when these were written, so that refactor could not be verified against
+the radio, and `tci-probe.sh` is the file standing between the operator and a
+repeat of the 2026-09-01 `tx_gain:0;` incident. An unverifiable refactor of that
+script is the wrong risk.
+
+Verbatim is only true while something checks it, so **`make-bundle.sh` now
+refuses to build when the embedded JS drifts from the `.sh`**. The guard was
+tested in both directions: it passes on the clean tree, and it was proven to fail
+by injecting exactly the `modulations_list` NOISE filter that caused the original
+mode-list bug. If the program must change, change the `.sh` and re-extract —
+never hand-edit one side.
+
+### Not ported, deliberately
+
+`restore-plugin-patches.sh` and `make-bundle.sh` — the maintenance loop. They are
+about *this* desk's install, not a target machine; a Windows user consuming the
+bundle does not need them.
+
+### Still outstanding
+
+- The `ProfilesV2` path is still inferred, and it is the half carrying the
+  operating settings. First suspect if the profile does not appear in Studio.
+- Studio's process name and the location of its bundled Node on Windows are both
+  still unknown; the scripts probe rather than assume, but a real answer would be
+  better than a probe.
+- The first datum worth having from any real attempt is whether a plugin process
+  appears in Studio's process list on Windows — that alone separates "the plugin
+  runs" from "the paths are wrong".
+- PowerShell 7.6 is now installed on this Mac (`brew install powershell`), so any
+  future port work can be parse-checked and partly exercised without a Windows
+  host. That is how the `Get-NetTCPConnection` bug was found.
 
 ## Diffing against upstream
 

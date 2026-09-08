@@ -7,6 +7,7 @@
 #   - the D100H profile from profile/
 #   - INSTALL.md and install.sh (the script does steps 1-2 and the step-5 checks)
 #   - tci-probe.sh and tci-watch.sh
+#   - windows/ — the untested PowerShell port (install + all three diagnostics)
 #
 # The plugin is assembled from the INSTALLED copy rather than from patched/,
 # because patched/ holds only the four files we modify — the rest of the plugin
@@ -44,6 +45,41 @@ for f in plugin/app.js manifest.json \
   }
 done
 grn "installed plugin matches patched/"
+
+# Refuse to ship a Windows port whose embedded JavaScript has drifted from the
+# proven macOS program. windows/*.ps1 carry the tci-probe / tci-watch programs
+# copied verbatim, because AE was not running when they were written and an
+# unverifiable refactor of the probe is exactly the wrong risk to take with a
+# script that stands between the operator and another tx_gain:0 incident.
+# Verbatim only stays true if something checks. This is that something.
+python3 - "$HERE" <<'PYGUARD' || exit 1
+import pathlib, sys
+here = pathlib.Path(sys.argv[1])
+
+def from_sh(name):
+    t = (here / f"{name}.sh").read_text()
+    s = t.index("node --input-type=module -e '") + len("node --input-type=module -e '")
+    return t[s:t.rindex("'\n")]
+
+def from_ps1(name):
+    t = (here / "windows" / f"{name}.ps1").read_text()
+    s = t.index("$Program = @'\n") + len("$Program = @'\n")
+    return t[s:t.index("\n'@", s) + 1]
+
+bad = False
+for name in ("tci-probe", "tci-watch"):
+    # Compare the program, not the block padding: the .sh keeps the newline
+    # straight after `-e \'` and the here-string does not. Leading/trailing
+    # blank lines are framing, any other difference is drift.
+    if from_sh(name).strip("\n") != from_ps1(name).strip("\n"):
+        print(f"  DRIFT: windows/{name}.ps1 JavaScript differs from {name}.sh")
+        bad = True
+if bad:
+    print("  The Windows ports embed the macOS program verbatim. Re-extract it")
+    print("  rather than hand-editing one side. Refusing to bundle a mismatch.")
+    sys.exit(1)
+print("  verified   windows/*.ps1 embed the macOS JS verbatim")
+PYGUARD
 
 # Same guard for the PROFILE.  profile/ is a hand-taken snapshot of the installed
 # profile and nothing keeps it honest: on 2026-09-01 the installed copy had
@@ -85,6 +121,7 @@ cp "$HERE/tci-watch.sh" "$OUT/"          # read-only broadcast-vs-query watcher
 # in the repo root.
 cp "$HERE/LICENSE" "$OUT/"
 cp "$HERE/NOTICE" "$OUT/"
+rsync -a --exclude '.DS_Store' "$HERE/windows" "$OUT/"   # untested Windows port
 
 ZIP="$OUT.zip"; rm -f "$ZIP"
 ( cd "$(dirname "$OUT")" && zip -qr "$(basename "$ZIP")" "$(basename "$OUT")" -x "*.DS_Store" )

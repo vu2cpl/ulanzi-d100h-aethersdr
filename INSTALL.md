@@ -152,39 +152,34 @@ is the inspector calling `sendParamFromPlugin()` instead of `setSettings()`.
 the dial and leaks keystrokes into whatever app has focus. Leave it off; this
 plugin uses TCI instead.
 
-## Windows and Linux
+## Windows
 
-**Untested — nobody here has run it off macOS. What follows is what is known,
-not a claim that it works.**
+**Ported, but never run on Windows.** See `windows/` in this bundle:
+`install.ps1` plus PowerShell versions of all three diagnostics, and a README
+recording exactly what was verified, what was not, and which paths are confirmed
+versus inferred. The scripts parse under PowerShell 7.6 and their logic was
+exercised on macOS — but nothing has been tested against a real Studio, profile
+or dial on Windows. Start with:
 
-Both halves of the stack do exist on other platforms: Ulanzi Studio ships a
-Windows 10+ build, and AetherSDR ships a Windows installer and a Linux AppImage
-alongside the macOS DMG. Studio has no Linux build, so Linux is out at the Studio
-end regardless of AetherSDR.
+```powershell
+.\windows\install.ps1 -Check
+```
 
-The plugin itself has nothing macOS-specific in it. It is JavaScript on the Node
-runtime Studio ships, and it reaches AetherSDR over a **localhost WebSocket**
-(`ws://127.0.0.1:50001`) — no Mac API, no native module. Its one dependency, `ws`,
-is pure JavaScript with `--omit=dev`. So on Windows it has a fair chance of
-working once the files are in the right place.
+That path only reads. Then `.\windows\install.ps1` to install.
 
-What is definitely **not** portable is the tooling around it:
+Both halves of the stack do ship for Windows: Ulanzi Studio has a Windows 10+
+build, AetherSDR a Windows installer and Store listing. The plugin itself has
+nothing macOS-specific in it — JavaScript on the Node runtime Studio ships,
+reaching AetherSDR over a localhost WebSocket, with `ws` as its only dependency.
 
-- `install.sh`, `tci-probe.sh`, `tci-watch.sh`, `watch-ae-log.sh` are bash, and
-  use `osascript`, `lsof`, `ioreg` and macOS paths throughout. On Windows they
-  would need PowerShell rewrites; Git Bash gets you the shell but not those tools.
-- The install locations differ. This bundle's paths are the macOS ones
-  (`~/Library/Application Support/Ulanzi/UlanziDeck/{Plugins,ProfilesV2}`); the
-  Windows equivalent under `%APPDATA%` has not been confirmed against a real
-  install.
-- AetherSDR's log directory, which `watch-ae-log.sh` reads, is a macOS path.
-- The profile binds the D100H by the device UUID the dial itself supplies, so it
-  *should* carry across to the same dial on another OS — unverified.
+Confirmed paths: the plugin goes in `%APPDATA%\Ulanzi\UlanziDeck\Plugins`, and
+AetherSDR logs to `%LOCALAPPDATA%\AetherSDR\logs`. The profile directory
+(`...\UlanziDeck\ProfilesV2`) is *inferred* from the macOS layout and has never
+been seen on Windows — if the profile does not show up in Studio, check that
+first. Details and the rest of the caveats are in `windows/README.md`.
 
-If you try it, the honest starting point is: copy the plugin folder and the
-profile folder into Studio's Windows equivalents by hand, start Studio, and see
-whether a plugin process appears. Report back and this section can stop being
-guesswork.
+**Linux is out**, regardless of AetherSDR shipping an AppImage: Ulanzi Studio has
+no Linux build at all, so there is nothing to load the plugin.
 
 ## Keeping it working
 

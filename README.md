@@ -102,6 +102,7 @@ backups/                     what was overwritten, timestamped (created on first
 d100h-aethersdr-macbook.zip  the built bundle, committed for download on the target Mac
 INSTALL.md                   installing on another Mac
 install.sh                   run it on the TARGET Mac — installs from the bundle
+windows/                     PowerShell port of the above — UNTESTED, see its README
 make-bundle.sh               build the self-contained install zip
 HANDOVER.md                  full story, gotchas, open items
 TCI-ACTIONS.md               all 51 assignable actions, probe-verified
