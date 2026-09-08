@@ -3,11 +3,13 @@
 **Last updated:** 2026-09-08
 **Licence:** Apache-2.0 (see LICENSE / NOTICE) — the plugin is G0JKN's work
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
-**Last verified on the radio:** 2026-09-08, after the bundle rebuild — dial tuning
-(`vfo:0,0,…` walking 7138→7126 kHz, every write on the 1 kHz grid), mode cycle
-(cw→usb→digu→lsb), TUNE query-then-act both ways, band change with mode following,
-mute, PTT, and split parking VFO B 5 kHz up on SSB — all confirmed in AetherSDR's
-own log via `./watch-ae-log.sh`, not merely on the wire.
+**Last verified on the radio:** 2026-09-08 — three sessions, all read off
+AetherSDR's own log via `./watch-ae-log.sh`, never merely from the wire. Mode
+cycle (cw→usb→digu→lsb), band change with mode following, mute, PTT, TUNE
+query-then-act (seven complete start/stop pairs, every `true` matched by a
+`false`), and split parking VFO **B** 5 kHz up on SSB while RX stayed put. A
+dedicated 222-write fine-tuning capture put patches 14 and 15 beyond doubt —
+see their entries below for the one 900 Hz step that proves the snap.
 
 ---
 
@@ -246,10 +248,26 @@ looks perfect. Run `./restore-plugin-patches.sh` after any update.
     inspector, and the profile switched to it. Three rates: slow (`step_hz`),
     fast (`step_hz × coarse_mult`, latched by the press), and press-and-rotate
     multiplying again on top of either.
+    **Verified on the radio 2026-09-08.** A 222-write capture contained exactly
+    two step sizes — 100 Hz (×109) and 1000 Hz (×78) — i.e. `step_hz` 100 and
+    `step_hz × coarse_mult`, with the press latching between them mid-session.
+    One press action, both rates on the wire, and no VFO swap anywhere in the
+    capture.
 
 15. **The dial snaps to the step grid, and the VFO tooltip stopped lying.** Two
     small fixes landed together because each alone was too cheap to justify the
-    Studio quit a redeploy costs. **Verified on the radio 2026-09-02**, off-grid —
+    Studio quit a redeploy costs. **Re-verified on the radio 2026-09-08, and this
+    time the snap was caught in the act.** A 222-write capture across a 34 kHz
+    sweep (7113–7147 kHz) put every single write on the 100 Hz grid — zero
+    off-grid values. Buried in it was one anomalous **900 Hz** step, and it is the
+    proof rather than a defect: the operator was tuning fine and sat on 7144900 —
+    a 100 Hz boundary but not a 1 kHz one — then switched to coarse. A naive
+    increment would have gone to 7143900 and stayed 100 Hz off the kHz grid for
+    the rest of the session, which is exactly the old bug. Instead the first
+    coarse click snapped to 7144000 and every click after it was a clean −1000.
+    The capture also held 33 repeated same-frequency writes, the expected other
+    half: sub-step knob motion resolving to the same grid point until it crosses.
+    **Originally verified 2026-09-02**, off-grid —
     which is the only case that proves anything, since an on-grid base behaves
     identically before and after this patch. (AetherSDR's log confirmed the
     on-grid half independently: every post-deploy fast write landed exactly on a

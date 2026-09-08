@@ -193,6 +193,14 @@ pairs with timestamps, which is what proved a second press could finally stop a
 tune. It filters MSHV's once-a-second `vfo` / `modulation` poll, which otherwise
 buries everything.
 
+It is also how patches 14 and 15 were confirmed on 2026-09-08. A 222-write
+fine-tuning capture across 7113–7147 kHz put **every** write on the 100 Hz grid,
+in exactly two step sizes (100 Hz and 1 kHz — the press latching between them),
+plus one 900 Hz step that is the snap itself: tuning fine at 7144900, then
+switching to coarse, the first click landed on 7144000 instead of carrying a
+100 Hz offset forever. That offset-carrying is the bug patch 15 removed, caught
+on the wire rather than argued from the source.
+
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.
 

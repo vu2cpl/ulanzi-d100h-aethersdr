@@ -7,7 +7,8 @@
 #   - the D100H profile from profile/
 #   - INSTALL.md and install.sh (the script does steps 1-2 and the step-5 checks)
 #   - tci-probe.sh and tci-watch.sh
-#   - windows/ — the untested PowerShell port (install + all three diagnostics)
+#   - windows/ — the PowerShell port (install + all three diagnostics); verified
+#     on macOS, never run on Windows — see windows/README.md
 #
 # The plugin is assembled from the INSTALLED copy rather than from patched/,
 # because patched/ holds only the four files we modify — the rest of the plugin
@@ -121,7 +122,7 @@ cp "$HERE/tci-watch.sh" "$OUT/"          # read-only broadcast-vs-query watcher
 # in the repo root.
 cp "$HERE/LICENSE" "$OUT/"
 cp "$HERE/NOTICE" "$OUT/"
-rsync -a --exclude '.DS_Store' "$HERE/windows" "$OUT/"   # untested Windows port
+rsync -a --exclude '.DS_Store' "$HERE/windows" "$OUT/"   # PowerShell port, never run on Windows
 
 ZIP="$OUT.zip"; rm -f "$ZIP"
 ( cd "$(dirname "$OUT")" && zip -qr "$(basename "$ZIP")" "$(basename "$OUT")" -x "*.DS_Store" )
