@@ -121,11 +121,13 @@ Bundles the patched plugin **with `node_modules`**, the profile, and
 Ulanzi Studio ships its own runtime. The script refuses to build if the
 installed plugin or the profile has drifted from the repo.
 
-**The committed zip goes stale on every patch** — it is a build artifact, not a
-source of truth, and unlike `patched/` nothing guards it. It also carries G0JKN's
-full plugin and `node_modules`, neither of which this repo otherwise vendors.
-Rebuild and re-commit it in the same cycle as any plugin patch, or delete it and
-build on demand. **Quit Studio before building**: it flushes profile state on its
+**The committed zip goes stale on every commit that touches what it ships** — the
+patched plugin, `profile/`, [INSTALL.md](INSTALL.md), `tci-probe.sh`,
+`tci-watch.sh`, `LICENSE` and `NOTICE`. It is a build artifact, not a source of
+truth, and unlike `patched/` nothing guards it. It also carries G0JKN's full
+plugin and `node_modules`, neither of which this repo otherwise vendors. Rebuild
+and re-commit it in the same cycle as any such commit — not just plugin patches —
+or delete it and build on demand. **Quit Studio before building**: it flushes profile state on its
 own schedule, so a bundle built while it is running can miss an edit by minutes
 (it shipped an unlabelled Mute key that way on 2026-09-02).
 

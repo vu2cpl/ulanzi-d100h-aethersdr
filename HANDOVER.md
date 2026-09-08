@@ -1,6 +1,6 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-08
 **Licence:** Apache-2.0 (see LICENSE / NOTICE) — the plugin is G0JKN's work
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 
@@ -417,13 +417,13 @@ plugin files. The restore script refuses to run while it is up.
       modification is recorded in NOTICE instead.
       `upstream-original/` deliberately carries none either: those files are
       unmodified, and a "this file was changed" header on them would be false.
-      **`make-bundle.sh` will refuse its next run** — patched/ now differs from the
-      installed plugin by exactly these notices. Run `./restore-plugin-patches.sh`
-      with Studio quit first. The guard is working as designed; this is written
-      down so it is not mistaken for drift. The shipped
-      `d100h-aethersdr-macbook.zip` predates the notices and should be rebuilt at
-      the same time — the script now copies LICENSE and NOTICE into the bundle, so
-      the licence travels with a copy handed to another Mac.
+      **`make-bundle.sh` refused its next run** — patched/ differed from the
+      installed plugin by exactly these notices. Resolved 2026-09-08: Studio quit,
+      `./restore-plugin-patches.sh`, then `./make-bundle.sh`. The guard was working
+      as designed; recorded so it is not mistaken for drift if it recurs.
+      The shipped `d100h-aethersdr-macbook.zip` had predated the notices and was
+      rebuilt in the same pass — it is now current, and carries LICENSE and NOTICE,
+      so the licence travels with a copy handed to another Mac.
 
 - [x] **Slice switching dropped — operator's call, 2026-09-02. Do not re-propose it.**
       Not worth having on this hardware with this software, in either available form, and
@@ -649,9 +649,15 @@ is derived, drifts from `patched/` silently, and carries `node_modules` that
 `.gitignore` excludes; the reason to carry it anyway is that the target Mac can
 then download it straight from the private repo instead of needing a file transfer.
 The objections still hold and are now the maintenance burden: **rebuild and
-re-commit the zip in the same cycle as any plugin patch**, because nothing guards
-it the way `make-bundle.sh` guards `patched/` and `profile/` — a stale zip is
-indistinguishable from a current one. It also vendors G0JKN's full plugin, which
+re-commit the zip in the same cycle as ANY commit that touches something the
+bundle ships**, because nothing guards it the way `make-bundle.sh` guards
+`patched/` and `profile/` — a stale zip is indistinguishable from a current one.
+Operator's rule, restated 2026-09-08: *rebuild the zip with any commits*, not
+merely with plugin patches. Narrowing it to "plugin patch" is what let the
+2026-09-02 zip sit five commits stale — `tci-probe.sh` had lost its NOISE-filter
+fix and `LICENSE`/`NOTICE` were absent entirely, none of them plugin patches.
+The bundle ships the patched plugin, `profile/`, `INSTALL.md`, `tci-probe.sh`,
+`tci-watch.sh`, `LICENSE` and `NOTICE` — a commit to any of those seven stales it. It also vendors G0JKN's full plugin, which
 this repo otherwise deliberately does not. If it starts drifting in practice,
 delete it and go back to building on demand, or attach it to a release instead.
 
