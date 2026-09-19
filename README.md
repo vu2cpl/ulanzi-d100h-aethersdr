@@ -216,8 +216,9 @@ because **mono at 16 kHz is HFP and the dial will be sluggish** while stereo at
 where a wired mic is an option, TX on a USB interface with RX still on the
 headset removes the contention outright. AE has no input-device preference of its
 own — it takes the system default at the moment it opens the TX stream, so the
-control is in System Settings → Sound → Input, not in AE. Where the Bluetooth mic
-is a requirement, the airtime is fixed and the lever is `step_hz` instead. Full story, the
+control is in System Settings → Sound → Input, not in AE. **Resolved here on
+2026-09-20 by moving to a wired USB headset**: no Bluetooth audio device, no SCO,
+35 detents/s, and 48 kHz receive audio instead of 16 kHz mono. Full story, the
 measurement, and three wrong diagnoses in HANDOVER.md "A sluggish knob is a
 Bluetooth problem".
 

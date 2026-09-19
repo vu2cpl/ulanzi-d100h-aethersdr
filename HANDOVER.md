@@ -428,32 +428,37 @@ system_profiler SPAudioDataType | grep -A8 "^        <headset name>:" \
 | peak detents/second | ~10 | 31–36 |
 | median gap between detents | 110 ms | 30–40 ms |
 
-**The headset mic is a hard requirement on this station** (confirmed by the
-operator 2026-09-19), so the SCO link stays and the airtime it takes is a fixed
-constraint. Moving the dial to USB is not an option either — see "Hardware facts
-that matter": it is Bluetooth LE only, `KEHWIN` VID `0xFFF1` / PID `0x0082`, and
-will never appear in the IOUSB plane. **Do not re-derive either of these; both
-were theorised and disproved on 2026-09-19.**
+**Resolved 2026-09-19 23:59 by a USB headset.** The operator had said the
+Bluetooth headset was non-negotiable, which made the SCO airtime look like a
+fixed constraint; he then simply moved to a wired USB headset and the problem
+vanished. With no Bluetooth audio device present at all, nothing opens SCO, the
+dial has the radio to itself, and the measured rate went to **35/s** — top of
+the healthy band. AE now runs TX and RX on `"USB Audio Device"` (C-Media) at
+**48000 Hz**, against 16000 Hz mono over HFP, so the receive audio improved in
+the same move.
 
-That leaves making each detent count for more, which is entirely in this
-project's hands:
+**The general rule, for the next time this comes up:** only the headset's
+*microphone* forces HFP. Any of these clears it —
 
-1. **Stop wasting detents.** 31–58% of the commands in every log are recomputes
-   of a target the dial already sent, because `dialRotate()` steps from
-   `radio.frequency` and that only moves when AE echoes back. Detents arriving
-   faster than the round-trip compute the same target twice and the second one
-   moves nothing. Under a starved link that is pure loss. The gain helpers
-   already solve this — they update the mirror optimistically before sending,
-   with the rationale in a comment above `clamp01_100`. Candidate **patch 16**.
-2. **Raise `step_hz`.** At 100 Hz and ~10 detents/second the dial covers 1 kHz/s,
-   which is the sluggishness as plain arithmetic. 200 or 500 Hz covers ground
-   proportionally faster and the knob press still drops to fine tuning. Property
-   inspector only, no code.
+- a **wired/USB headset** (what worked here: mic and ears both, no radio cost);
+- TX on a USB interface with RX still on the Bluetooth headset over A2DP;
+- a USB Bluetooth *audio adapter*, which handles the headset link itself and
+  presents as a plain USB sound card, if a wireless headset is essential.
 
-For the record, had the mic been free: only the headset's *microphone* forces
-HFP, so TX on a USB interface (`"USB Advanced Audio Device"` or
-`"Cable Creation"`, both C-Media) with RX still on the headset over A2DP would
-have removed the contention outright.
+**Moving the dial off Bluetooth is not an option** — see "Hardware facts that
+matter": it is Bluetooth LE only, `KEHWIN` VID `0xFFF1` / PID `0x0082`, and will
+never appear in the IOUSB plane. A USB hub chain was theorised on 2026-09-19 for
+a device this file already documented as wireless. Do not re-derive it.
+
+**Still worth doing, but no longer urgent:** 31–59% of the commands in any log
+are the plugin recomputing a target the dial already sent, because
+`dialRotate()` steps from `radio.frequency` and that only moves when AE echoes
+back. Detents arriving faster than the round-trip compute the same target twice
+and the second one moves nothing. The share *rises* with dial speed — it hit 59%
+at 35/s — so a healthy link wastes more, not less. The gain helpers already solve
+this by updating the mirror optimistically before sending, with the rationale in
+a comment above `clamp01_100`. Candidate **patch 16**; it was a compensation for
+starvation, now it is just efficiency.
 
 **Measure it with `./measure-knob.sh`** rather than by feel. It times the
 detents out of AE's newest log and prints a verdict; `--watch` waits for a sweep
@@ -652,9 +657,10 @@ sluggish. `lsof -nP -iTCP:50001` lists who is on the port.
       UberSDR, not CPU, not this repo: AetherSDR had grabbed the Bluetooth
       headset as TX mic, which forces HFP/SCO and starves the dial's BLE HID
       link. Peak rate 10/s while broken, 31/s once AE released the mic. See
-      "A sluggish knob is a Bluetooth problem" under Known gotchas. **Standing
-      risk:** AE takes the system default input at stream-open, so it recurs
-      whenever the headset is the default input when AE starts.
+      "A sluggish knob is a Bluetooth problem" under Known gotchas. **Closed
+      23:59 the same night** by moving to a wired USB headset — no Bluetooth
+      audio device, no SCO, 35/s. It only returns if a Bluetooth headset is
+      paired again AND is the system default input when AE starts.
 
 - [ ] **Decide AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session

@@ -22,10 +22,11 @@
 # profile is the corroborating tell: mono/16000 is HFP and the dial will be
 # slow, stereo/44100 is A2DP and it will not. `--audio` prints it.
 #
-# Count only CHANGES. 31-58% of the commands in any log are the plugin
+# Count only CHANGES. 31-59% of the commands in any log are the plugin
 # recomputing a target the dial already sent, because dialRotate() steps from a
 # mirror that only moves when AE echoes back. Those are not detents and counting
-# them flatters the result.
+# them flatters the result. The share RISES with dial speed -- a fast link
+# outruns the echo more often -- so a high repeat count is not a fault.
 #
 # Do not use the median gap, and especially not the 10th percentile: queue-drained
 # bursts arrive microseconds apart and drag the low percentiles down, which on
@@ -118,7 +119,7 @@ if not per:
 busy = sorted(per.values(), reverse=True)
 peak = busy[0]
 print(f"raw commands: {len(ev)}   detents: {sum(per.values())}   "
-      f"repeats: {repeats} ({100*repeats//max(1,len(ev))}%, expected 31-58%)")
+      f"repeats: {repeats} ({100*repeats//max(1,len(ev))}%, expected 31-59%, rises with speed)")
 print(f"busiest seconds (detents/s): {busy[:5]}")
 verdict = ("HEALTHY" if peak >= 28 else
            "DEGRADED — check the Bluetooth audio profile with --audio" if peak >= 15 else
