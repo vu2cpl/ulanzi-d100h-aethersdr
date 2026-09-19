@@ -98,6 +98,7 @@ restore-plugin-patches.sh    re-apply them, with version guard + verification
 tci-probe.sh                 query TCI safely (one arg = read, two = confirmed write)
 tci-watch.sh                 which verbs BROADCAST vs only answer a query (read-only)
 watch-ae-log.sh              what the PLUGIN actually sent, from AE's own log (read-only)
+measure-knob.sh              how fast detents are getting through, from that log (read-only)
 backups/                     what was overwritten, timestamped (created on first run)
 d100h-aethersdr-macbook.zip  the built bundle, committed for download on the target Mac
 INSTALL.md                   installing on another Mac
@@ -208,9 +209,10 @@ from a dead button — so probe before coding against a verb.
 BLE HID device, so a Bluetooth headset in HFP/SCO mode starves its detents — they
 queue between SCO slots, arrive in bursts, and keep arriving after you stop
 turning. On 2026-09-19 AetherSDR had opened the headset as its TX mic, which is
-what forces HFP; the dial ran at 10 detents/second instead of 31. The signature is
-in the audio profile: **mono at 16 kHz is HFP and the dial will be sluggish**,
-stereo at 44.1 kHz is A2DP and it will not. Only the headset's *microphone* forces HFP, so
+what forces HFP; the dial ran at 10 detents/second instead of 31. `./measure-knob.sh` times the detents out of
+AE's log and says HEALTHY or STARVED; `--audio` adds the corroborating tell,
+because **mono at 16 kHz is HFP and the dial will be sluggish** while stereo at
+44.1 kHz is A2DP and it will not. Only the headset's *microphone* forces HFP, so
 where a wired mic is an option, TX on a USB interface with RX still on the
 headset removes the contention outright. AE has no input-device preference of its
 own — it takes the system default at the moment it opens the TX stream, so the

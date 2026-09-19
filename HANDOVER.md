@@ -455,20 +455,22 @@ HFP, so TX on a USB interface (`"USB Advanced Audio Device"` or
 `"Cable Creation"`, both C-Media) with RX still on the headset over A2DP would
 have removed the contention outright.
 
-**Measure the dial as peak distinct detents per second during a sustained sweep**,
-and sanity-check it against how the knob actually feels:
+**Measure it with `./measure-knob.sh`** rather than by feel. It times the
+detents out of AE's newest log and prints a verdict; `--watch` waits for a sweep
+and reports when you stop; `--audio` prints the Bluetooth profile beside it.
 
 ```bash
-L=~/Library/Preferences/AetherSDR/logs
-grep -hoE '^\[[0-9:.]+\].*TCI rx: "vfo:0,0,[0-9]+' \
-     "$L/$(ls -t $L | grep -v '^aethersdr.log$' | head -1)" \
-| sed -E 's/^\[([0-9]+):([0-9]+):([0-9]+)\.[0-9]+\].*vfo:0,0,([0-9]+)/\1:\2:\3 \4/' \
-| awk '$2!=p {c[$1]++} {p=$2} END{for(s in c) print c[s]}' \
-| sort -rn | head -5
+./measure-knob.sh            # whole newest log
+./measure-knob.sh --watch    # spin the knob, get the number
+./measure-knob.sh --audio    # plus the HFP/A2DP tell
 ```
 
-Count only *changes* — repeats of the same frequency are the round-trip artefact
-below, not detents. Healthy on this station is **31–36/s**.
+It counts only *changes* — repeats of the same frequency are the round-trip
+artefact below, not detents, and counting them flatters the result. Healthy on
+this station is **31-36/s**; the 2026-09-19 outage ran at ~10/s. A low peak can
+also just mean nobody spun the knob hard, so sweep continuously before believing
+a bad number. Like `watch-ae-log.sh` it is not in the bundle: `make-bundle.sh`
+ships the two tools that talk to the radio, not the ones that read its log.
 
 **Two metrics that failed, so nobody rebuilds them.** The *median* gap is
 confounded by how hard you happened to spin. The **10th-percentile gap is worse
