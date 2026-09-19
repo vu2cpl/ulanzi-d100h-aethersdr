@@ -390,70 +390,108 @@ plugin files. The restore script refuses to run while it is up.
 
 **Restart Studio after any plugin file change.** `app.js` is only read at plugin start.
 
-### A sluggish knob is measurable — don't argue about it
+### A sluggish knob is a Bluetooth problem, not a software one
 
-**2026-09-19, ~18:30–23:10 IST.** The dial went sluggish and imprecise: each
-detent lagged, and letting go did not stop it — the frequency kept walking for
-another beat. The instinct was that something in this repo had changed. Nothing
-had. `patched/plugin/app.js` and the live plugin were byte-identical, the profile
-too, `git status` clean, mtimes still those of the 2026-09-08 session.
+**2026-09-19, ~18:30–23:35 IST.** The dial went sluggish and imprecise: detents
+lagged, and letting go did not stop it — the frequency kept walking for another
+beat. Nothing in this repo had changed. The installed plugin and profile were
+byte-identical to the committed copies, `git status` clean, mtimes still those of
+the 2026-09-08 session.
 
-**The knob's health is a number, and AE's own log already records it.** Every
-detent is one `TCI rx: "vfo:0,0,<hz>;"` line with a millisecond stamp, so the gap
-between consecutive detents *is* the responsiveness. Watch the **10th percentile**
-rather than the median: a human spin varies, so what a rate limit shows up as is a
-*floor* under the quick gaps. (Not the single fastest gap — two detents can and do
-land in the same millisecond, so that statistic is one burst away from meaningless.
-p10 is the robust version of the same idea.)
+**Cause: the D100H is a BLE HID device, and a Bluetooth headset in HFP/SCO mode
+starves it.** AetherSDR had opened the headset as its TX microphone:
+
+```
+input selected="Ufly" default="Ufly" saved=not configured source="system default"
+[23:27:09.893] AudioEngine: TX input device: "Ufly" ... rate: 16000 ch: 1
+```
+
+Opening that mic forces the headset out of A2DP into HFP/SCO, the hands-free
+voice profile. SCO reserves periodic synchronous slots on the 2.4 GHz radio and
+starves BLE HID traffic — the same mechanism that makes a Bluetooth mouse stutter
+during a call. The dial's detents are BLE packets, so they queue between SCO
+slots and arrive late and in bursts. **The overshoot is that queue draining**, in
+the Bluetooth stack rather than anywhere in this codebase.
+
+**The signature is in the audio profile, and it takes one command.** HFP is mono
+at 16 kHz; A2DP is stereo at 44.1 kHz. If the headset reads mono/16000, the dial
+*will* be sluggish:
+
+```bash
+system_profiler SPAudioDataType | grep -A8 "^        <headset name>:" \
+  | grep -E "Channels|SampleRate"
+```
+
+| | broken (HFP/SCO) | healthy (A2DP) |
+|---|---|---|
+| headset output | 1 ch, 16000 Hz | 2 ch, 44100 Hz |
+| peak detents/second | ~10 | 31–36 |
+| median gap between detents | 110 ms | 30–40 ms |
+
+**The headset mic is a hard requirement on this station** (confirmed by the
+operator 2026-09-19), so the SCO link stays and the airtime it takes is a fixed
+constraint. Moving the dial to USB is not an option either — see "Hardware facts
+that matter": it is Bluetooth LE only, `KEHWIN` VID `0xFFF1` / PID `0x0082`, and
+will never appear in the IOUSB plane. **Do not re-derive either of these; both
+were theorised and disproved on 2026-09-19.**
+
+That leaves making each detent count for more, which is entirely in this
+project's hands:
+
+1. **Stop wasting detents.** 31–58% of the commands in every log are recomputes
+   of a target the dial already sent, because `dialRotate()` steps from
+   `radio.frequency` and that only moves when AE echoes back. Detents arriving
+   faster than the round-trip compute the same target twice and the second one
+   moves nothing. Under a starved link that is pure loss. The gain helpers
+   already solve this — they update the mirror optimistically before sending,
+   with the rationale in a comment above `clamp01_100`. Candidate **patch 16**.
+2. **Raise `step_hz`.** At 100 Hz and ~10 detents/second the dial covers 1 kHz/s,
+   which is the sluggishness as plain arithmetic. 200 or 500 Hz covers ground
+   proportionally faster and the knob press still drops to fine tuning. Property
+   inspector only, no code.
+
+For the record, had the mic been free: only the headset's *microphone* forces
+HFP, so TX on a USB interface (`"USB Advanced Audio Device"` or
+`"Cable Creation"`, both C-Media) with RX still on the headset over A2DP would
+have removed the contention outright.
+
+**Measure the dial as peak distinct detents per second during a sustained sweep**,
+and sanity-check it against how the knob actually feels:
 
 ```bash
 L=~/Library/Preferences/AetherSDR/logs
 grep -hoE '^\[[0-9:.]+\].*TCI rx: "vfo:0,0,[0-9]+' \
      "$L/$(ls -t $L | grep -v '^aethersdr.log$' | head -1)" \
-| sed -E 's/^\[([0-9]+):([0-9]+):([0-9]+)\.([0-9]+)\].*vfo:0,0,([0-9]+)/\1 \2 \3 \4 \5/' \
-| awk '{t=$1*3600+$2*60+$3+$4/1000
-        if(NR>1 && $5!=p && t-l<0.6) print int((t-l)*1000)
-        p=$5; l=t}' \
-| sort -n \
-| awk '{a[NR]=$1} END{print "steps="NR"  p10="a[int(NR/10)+1]"ms  median="a[int(NR/2)]"ms"}'
+| sed -E 's/^\[([0-9]+):([0-9]+):([0-9]+)\.[0-9]+\].*vfo:0,0,([0-9]+)/\1:\2:\3 \4/' \
+| awk '$2!=p {c[$1]++} {p=$2} END{for(s in c) print c[s]}' \
+| sort -rn | head -5
 ```
 
-It drops repeats of the same frequency (those are the round-trip artefact below,
-not detents) and gaps over 600 ms (those are pauses between sweeps). Skip the
-`aethersdr.log` symlink or you measure the same file twice.
+Count only *changes* — repeats of the same frequency are the round-trip artefact
+below, not detents. Healthy on this station is **31–36/s**.
 
-| | normal | degraded | after |
-|---|---|---|---|
-| median gap | 20–40 ms | **110 ms** | 31 ms |
-| p10 gap | 9–30 ms | **90 ms** | 10 ms |
-| detents/second | ~25 | **~9** | ~25 |
+**Two metrics that failed, so nobody rebuilds them.** The *median* gap is
+confounded by how hard you happened to spin. The **10th-percentile gap is worse
+than useless**: it called a sweep "healthy" (median 30.5 ms, p10 15 ms) that the
+operator was at that moment describing as sluggish, because a handful of
+queue-drained bursts arrive microseconds apart and drag the low percentiles down.
+A statistic that disagrees with the operator is the wrong statistic.
 
-Normal is every session 2026-09-12 → 18, plus 18:24 that evening. The floor then
-walked up through the evening — 18:46 p10 30 ms, 19:15 39 ms, 19:57 79 ms,
-23:07 90 ms — which is why it felt like a gradual sag rather than a switch being
-thrown. **The overshoot is the same fact from the other end:** `dialRotate()`
-sends on the spot with no throttle of its own, so when the far end drains at 10/s
-and your fingers produce 40/s, the surplus sits in the socket buffer and keeps
-arriving after you stop. Sluggish and overshooting are one symptom, not two.
+**Three wrong diagnoses before the right one**, all of which looked well-evidenced:
 
-**What it was not:** CPU. AetherSDR sat at ~71% and the load average at ~8 both
-while it was broken and after it recovered. That was the first guess and it was
-wrong.
+- **AetherSDR's CPU.** It sat at ~71% and the load average at ~8 both while the
+  dial was broken and after it recovered. Correlation, not cause.
+- **UberSDR.** It really does connect to TCI 50001 and echo every `vfo:` back at
+  AE, so every detent was processed twice — 352 duplicates in one 4-minute
+  capture. Quitting it appeared to fix the dial. It did not: AE restarted in the
+  same window, and the sluggishness returned that evening with UberSDR not
+  running at all. The echo is real and wasteful; it was never the latency.
+- **The USB hub chain.** Built on the assumption that the deck was plugged in.
+  **It is not — the D100H is Bluetooth.** Check the transport before theorising
+  about the bus.
 
-**What was on the wire:** a second TCI client. **UberSDR** (`process="UberSDR
-Helper" version="0.5.0"`, first seen as a TCI client 2026-09-15) echoes every
-`vfo:` straight back at AetherSDR, so each of your detents was processed twice —
-352 duplicate `vfo:` in one 4-minute capture, and at 23:07:58 the same
-`vfo:0,0,613000;` arriving four times. Quitting it restored the numbers above.
-
-**But the attribution is not clean, and the next session should not inherit the
-belief that it is.** AetherSDR restarted on its own at 23:15:38, between the
-broken measurement and the good one. Two variables moved, so "UberSDR did it" is
-the likely story, not a proven one. **If it sags again: restart AE alone and
-re-measure first** — that discriminates in one step, and nobody has run it yet.
-
-**Residual, and not part of this regression:** with the plugin as the *only*
-client, each target still reaches AE two or three times.
+**Residual, present even when healthy:** each target reaches AE two or three
+times.
 
 ```
 23:15:56.352  vfo:0,0,1159600;
@@ -461,16 +499,17 @@ client, each target still reaches AE two or three times.
 23:15:56.362  vfo:0,0,1159600;
 ```
 
-That is patch 15 working as designed, not a bug: `dialRotate()` computes every
-step from `radio.frequency`, which only moves when AE echoes back (patch 9's
-mirror). Spin faster than the round-trip and consecutive detents compute the same
-target. Harmless to the radio, wasteful on the wire, and the structural ceiling on
-how fast the dial can ever track. Leave it alone unless it starts costing steps.
+That is patch 15 working as designed: `dialRotate()` computes every step from
+`radio.frequency`, which only moves when AE echoes back (patch 9's mirror). Spin
+faster than the round-trip and consecutive detents compute the same target. It
+runs at 31–58% of all commands in *every* log, healthy or not, so it is a
+constant and not a symptom. Harmless to the radio; the ceiling on how fast the
+dial can ever track.
 
-**Other TCI clients are part of this system whether or not you invited them.**
-MSHV was already documented here as a false positive when watching for the
-plugin's connection; UberSDR is the second, and it costs performance rather than
-just noise. `lsof -nP -iTCP:50001` lists who is on the port right now.
+**Other TCI clients are still worth knowing about.** MSHV polls the port and was
+already documented here as a false positive when watching for the plugin's
+connection; UberSDR doubles AE's per-command work. Neither makes the knob
+sluggish. `lsof -nP -iTCP:50001` lists who is on the port.
 
 ### AetherSDR TCI limits — verified by probe, not assumption
 
@@ -607,12 +646,13 @@ just noise. `lsof -nP -iTCP:50001` lists who is on the port right now.
       `mic_level;` → 79, `mic_level:40;` → reads back 40, restored to 79. The
       single-param form sets the value it names; the old `mic_level:0,40;` would have
       set 0. Bind the actions to a second Studio page if you want them on the dial.
-- [ ] **The 2026-09-19 knob slowdown was fixed but not diagnosed.** Quitting
-      UberSDR restored the per-detent cadence from a 90 ms floor to 9 ms, but
-      AetherSDR restarted in the same window, so the cause is unproven. Next
-      recurrence: **restart AE alone, re-measure, and only then quit UberSDR** —
-      one run settles it. See "A sluggish knob is measurable" under Known gotchas
-      for the measurement.
+- [x] **The 2026-09-19 knob slowdown — diagnosed 23:35 the same night.** Not
+      UberSDR, not CPU, not this repo: AetherSDR had grabbed the Bluetooth
+      headset as TX mic, which forces HFP/SCO and starves the dial's BLE HID
+      link. Peak rate 10/s while broken, 31/s once AE released the mic. See
+      "A sluggish knob is a Bluetooth problem" under Known gotchas. **Standing
+      risk:** AE takes the system default input at stream-open, so it recurs
+      whenever the headset is the default input when AE starts.
 
 - [ ] **Decide AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session

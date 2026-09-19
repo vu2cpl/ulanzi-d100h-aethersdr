@@ -110,9 +110,9 @@ quoting mangles at least one of them in transit. A file has no quoting layer.
 
 ## What is NOT ported
 
-The **knob-cadence measurement** added to the root README and HANDOVER on
-2026-09-19 (per-detent gaps out of AetherSDR's log, to tell a sluggish dial from
-a tired wrist) is a bash one-liner against macOS log paths. `watch-ae-log.ps1`
+The **knob-rate measurement** added to the root README and HANDOVER on
+2026-09-19 (detents per second out of AetherSDR's log, to tell a starved
+Bluetooth link from a tired wrist) is a bash one-liner against macOS log paths. `watch-ae-log.ps1`
 reads the same log on Windows, so the technique carries over, but the one-liner
 does not — and an untested PowerShell translation is exactly what this file
 exists to refuse. Port it on a machine that can run it.

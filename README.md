@@ -204,17 +204,20 @@ on the wire rather than argued from the source.
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.
 
-**A sluggish dial is a number, not a feeling.** Every detent is one
-`TCI rx: "vfo:0,0,<hz>;"` line in AetherSDR's log, so the gap between consecutive
-detents measures responsiveness directly — watch the 10th percentile, because a
-rate limit shows up as a *floor* under the quick gaps rather than a worse average.
-Healthy on this station is 9–30 ms; on 2026-09-19 it sat at 90 ms and the dial
-kept walking after the knob stopped, which is the same backlog seen from the
-other end. **Other TCI clients are part of this system whether or not you invited
-them** — MSHV polls the port, and UberSDR echoes every `vfo:` back, so each detent
-gets processed twice. `lsof -nP -iTCP:50001` shows who is on the port. Full
-story, numbers and the open question in HANDOVER.md "A sluggish knob is
-measurable".
+**A sluggish dial is a Bluetooth problem, not a software one.** The D100H is a
+BLE HID device, so a Bluetooth headset in HFP/SCO mode starves its detents — they
+queue between SCO slots, arrive in bursts, and keep arriving after you stop
+turning. On 2026-09-19 AetherSDR had opened the headset as its TX mic, which is
+what forces HFP; the dial ran at 10 detents/second instead of 31. The signature is
+in the audio profile: **mono at 16 kHz is HFP and the dial will be sluggish**,
+stereo at 44.1 kHz is A2DP and it will not. Only the headset's *microphone* forces HFP, so
+where a wired mic is an option, TX on a USB interface with RX still on the
+headset removes the contention outright. AE has no input-device preference of its
+own — it takes the system default at the moment it opens the TX stream, so the
+control is in System Settings → Sound → Input, not in AE. Where the Bluetooth mic
+is a requirement, the airtime is fixed and the lever is `step_hz` instead. Full story, the
+measurement, and three wrong diagnoses in HANDOVER.md "A sluggish knob is a
+Bluetooth problem".
 
 **The D100H has no per-key displays** — 7 physical buttons and a knob. On-key
 labels are impossible.
