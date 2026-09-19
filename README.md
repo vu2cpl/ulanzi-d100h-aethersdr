@@ -204,6 +204,18 @@ on the wire rather than argued from the source.
 AetherSDR also silently discards malformed commands, which is indistinguishable
 from a dead button — so probe before coding against a verb.
 
+**A sluggish dial is a number, not a feeling.** Every detent is one
+`TCI rx: "vfo:0,0,<hz>;"` line in AetherSDR's log, so the gap between consecutive
+detents measures responsiveness directly — watch the 10th percentile, because a
+rate limit shows up as a *floor* under the quick gaps rather than a worse average.
+Healthy on this station is 9–30 ms; on 2026-09-19 it sat at 90 ms and the dial
+kept walking after the knob stopped, which is the same backlog seen from the
+other end. **Other TCI clients are part of this system whether or not you invited
+them** — MSHV polls the port, and UberSDR echoes every `vfo:` back, so each detent
+gets processed twice. `lsof -nP -iTCP:50001` shows who is on the port. Full
+story, numbers and the open question in HANDOVER.md "A sluggish knob is
+measurable".
+
 **The D100H has no per-key displays** — 7 physical buttons and a knob. On-key
 labels are impossible.
 

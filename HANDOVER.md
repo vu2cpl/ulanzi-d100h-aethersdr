@@ -1,6 +1,6 @@
 # Ulanzi D100H → AetherSDR — HANDOVER
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-19
 **Licence:** Apache-2.0 (see LICENSE / NOTICE) — the plugin is G0JKN's work
 **Status:** Working. Controller drives AetherSDR over TCI via a patched third-party plugin.
 **Last verified on the radio:** 2026-09-08 — three sessions, all read off
@@ -390,6 +390,88 @@ plugin files. The restore script refuses to run while it is up.
 
 **Restart Studio after any plugin file change.** `app.js` is only read at plugin start.
 
+### A sluggish knob is measurable — don't argue about it
+
+**2026-09-19, ~18:30–23:10 IST.** The dial went sluggish and imprecise: each
+detent lagged, and letting go did not stop it — the frequency kept walking for
+another beat. The instinct was that something in this repo had changed. Nothing
+had. `patched/plugin/app.js` and the live plugin were byte-identical, the profile
+too, `git status` clean, mtimes still those of the 2026-09-08 session.
+
+**The knob's health is a number, and AE's own log already records it.** Every
+detent is one `TCI rx: "vfo:0,0,<hz>;"` line with a millisecond stamp, so the gap
+between consecutive detents *is* the responsiveness. Watch the **10th percentile**
+rather than the median: a human spin varies, so what a rate limit shows up as is a
+*floor* under the quick gaps. (Not the single fastest gap — two detents can and do
+land in the same millisecond, so that statistic is one burst away from meaningless.
+p10 is the robust version of the same idea.)
+
+```bash
+L=~/Library/Preferences/AetherSDR/logs
+grep -hoE '^\[[0-9:.]+\].*TCI rx: "vfo:0,0,[0-9]+' \
+     "$L/$(ls -t $L | grep -v '^aethersdr.log$' | head -1)" \
+| sed -E 's/^\[([0-9]+):([0-9]+):([0-9]+)\.([0-9]+)\].*vfo:0,0,([0-9]+)/\1 \2 \3 \4 \5/' \
+| awk '{t=$1*3600+$2*60+$3+$4/1000
+        if(NR>1 && $5!=p && t-l<0.6) print int((t-l)*1000)
+        p=$5; l=t}' \
+| sort -n \
+| awk '{a[NR]=$1} END{print "steps="NR"  p10="a[int(NR/10)+1]"ms  median="a[int(NR/2)]"ms"}'
+```
+
+It drops repeats of the same frequency (those are the round-trip artefact below,
+not detents) and gaps over 600 ms (those are pauses between sweeps). Skip the
+`aethersdr.log` symlink or you measure the same file twice.
+
+| | normal | degraded | after |
+|---|---|---|---|
+| median gap | 20–40 ms | **110 ms** | 31 ms |
+| p10 gap | 9–30 ms | **90 ms** | 10 ms |
+| detents/second | ~25 | **~9** | ~25 |
+
+Normal is every session 2026-09-12 → 18, plus 18:24 that evening. The floor then
+walked up through the evening — 18:46 p10 30 ms, 19:15 39 ms, 19:57 79 ms,
+23:07 90 ms — which is why it felt like a gradual sag rather than a switch being
+thrown. **The overshoot is the same fact from the other end:** `dialRotate()`
+sends on the spot with no throttle of its own, so when the far end drains at 10/s
+and your fingers produce 40/s, the surplus sits in the socket buffer and keeps
+arriving after you stop. Sluggish and overshooting are one symptom, not two.
+
+**What it was not:** CPU. AetherSDR sat at ~71% and the load average at ~8 both
+while it was broken and after it recovered. That was the first guess and it was
+wrong.
+
+**What was on the wire:** a second TCI client. **UberSDR** (`process="UberSDR
+Helper" version="0.5.0"`, first seen as a TCI client 2026-09-15) echoes every
+`vfo:` straight back at AetherSDR, so each of your detents was processed twice —
+352 duplicate `vfo:` in one 4-minute capture, and at 23:07:58 the same
+`vfo:0,0,613000;` arriving four times. Quitting it restored the numbers above.
+
+**But the attribution is not clean, and the next session should not inherit the
+belief that it is.** AetherSDR restarted on its own at 23:15:38, between the
+broken measurement and the good one. Two variables moved, so "UberSDR did it" is
+the likely story, not a proven one. **If it sags again: restart AE alone and
+re-measure first** — that discriminates in one step, and nobody has run it yet.
+
+**Residual, and not part of this regression:** with the plugin as the *only*
+client, each target still reaches AE two or three times.
+
+```
+23:15:56.352  vfo:0,0,1159600;
+23:15:56.352  vfo:0,0,1159600;
+23:15:56.362  vfo:0,0,1159600;
+```
+
+That is patch 15 working as designed, not a bug: `dialRotate()` computes every
+step from `radio.frequency`, which only moves when AE echoes back (patch 9's
+mirror). Spin faster than the round-trip and consecutive detents compute the same
+target. Harmless to the radio, wasteful on the wire, and the structural ceiling on
+how fast the dial can ever track. Leave it alone unless it starts costing steps.
+
+**Other TCI clients are part of this system whether or not you invited them.**
+MSHV was already documented here as a false positive when watching for the
+plugin's connection; UberSDR is the second, and it costs performance rather than
+just noise. `lsof -nP -iTCP:50001` lists who is on the port right now.
+
 ### AetherSDR TCI limits — verified by probe, not assumption
 
 - **No slice switching.** `set_in_focus` and `rx_channel_enable` are accepted and
@@ -525,6 +607,13 @@ plugin files. The restore script refuses to run while it is up.
       `mic_level;` → 79, `mic_level:40;` → reads back 40, restored to 79. The
       single-param form sets the value it names; the old `mic_level:0,40;` would have
       set 0. Bind the actions to a second Studio page if you want them on the dial.
+- [ ] **The 2026-09-19 knob slowdown was fixed but not diagnosed.** Quitting
+      UberSDR restored the per-detent cadence from a 90 ms floor to 9 ms, but
+      AetherSDR restarted in the same window, so the cause is unproven. Next
+      recurrence: **restart AE alone, re-measure, and only then quit UberSDR** —
+      one run settles it. See "A sluggish knob is measurable" under Known gotchas
+      for the measurement.
+
 - [ ] **Decide AetherSDR's TCI TX gain deliberately.** The probe sweep left it at 0;
       it now reads `tx_gain:50` (AE logs `gain=0.5`), while every working session
       through 31 Aug ran at `gain=1` — i.e. `tx_gain:100`. Read it with
